@@ -1,0 +1,10 @@
+*~
+dist/
+build/
+.bzr/
+.venv/
+*.egg-info/
+*.pyc
+*.py.~*
+/.coverage
+/.cover/
