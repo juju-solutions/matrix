@@ -23,14 +23,22 @@ Tests are run by an async engine driven by a simple rule engine. The reason to
 do things in this way is so we can express the high level test plan in terms of
 rules and states (similar to reactive and layer-cake).
 
-        tests:
-            - - do: deploy
-              - when: bundle.deployed
-                do: test_traffic.py
-                until: chaos.done
-              - while: test_traffic
-                after: test_traffic
-                do: chaos
+    tests:
+    - description: Traffic in the face of Chaos
+      rules:
+        - do:
+            action: deploy
+            version: current
+        - do: test_traffic
+          until: chaos.done
+          after: deploy
+        - do:
+            action: chaos
+          while: test_traffic
+        - do:
+            action: health
+            periodic: 5
+          until: chaos.done
 
 Given this YAML test definition fragment the intention here is as follows.
 Define a test relative to a bundle. Deploy that bundle, this will set a state
@@ -40,27 +48,12 @@ invoked more than once by the engine. While the engine is running the traffic
 suite a state (test_traffic based on test name) will be set. This allows
 triggering of the "while" rule which launches another task (chaos) on the
 current deployment. When that task has done what it deems sufficient it can set
-a state which will stop the execution of the traffic test. The "after"
-test_traffic informs the engine we'd like one completed run of the traffic
-generator before the "do" clause triggers. By stacking conditions like this we
-can ensure the basic bundle is functioning before testing more expensive
-mutations.
+a state which will stop the execution of the traffic test. 
 
 Rules are evaluated continuously until the test completes and may run in
 parallel. Excessive used of parallelism can make failure analysis more
 complicated for the user however.
 
-
-    tests:
-        - - do: deploy 
-            version: prev
-          - when: bundle.deployed
-            do: upgrade
-            version: current
-          - while: upgrade
-            do: chaos
-          -after: upgrade
-            do: chaos
 
 For a system like this to function we must continuously assert the health of
 the running bundle. This means there is a implicit task checking agent/workload

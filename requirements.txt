@@ -1,2 +1,4 @@
 PyYAML==3.12
-blessing==1.6
+blessings==1.6
+attrs==16.0.0
+petname==2.0
