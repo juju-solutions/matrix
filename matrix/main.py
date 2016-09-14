@@ -39,6 +39,7 @@ def setup(matrix, args=None):
                         type=Path)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
+    parser.add_argument("-r", "--show-report", action="store_true", default=False)
 
     options = parser.parse_args(args, namespace=matrix)
     configLogging(options)

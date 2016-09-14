@@ -1,16 +1,19 @@
 tests:
-- description: Traffic in the face of Chaos
+- name: traffic
+  description: Traffic in the face of Chaos
   rules:
     - do:
-        action: deploy
+        action: tests.deploy.deploy
         version: current
-    - do: test_traffic
+    - do:
+        action: tests.traffic.test_traffic
       until: chaos.done
       after: deploy
     - do:
-        action: chaos
+        action: tests.chaos.chaos
       while: test_traffic
     - do:
         action: health
         periodic: 5
       until: chaos.done
+      after: deploy

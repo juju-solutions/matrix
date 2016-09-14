@@ -21,35 +21,6 @@ RUNNING = "running"
 DONE = "done"
 
 
-# example plugins
-async def deploy(context, rule):
-    # XXX: this is a testing example and will be (re)moved
-    log.info("Start Deploy")
-    await asyncio.sleep(1.5, loop=context.loop)
-    #context.set_state("deploy", DONE)
-    log.info("Deploy DONE")
-    rule.complete = True
-
-async def test_traffic(context, rule):
-    context.set_state("test_traffic", RUNNING)
-    log.info("Start Traffic")
-    for i in range(6):
-        log.debug("TRAFFIC...")
-        await asyncio.sleep(1, loop=context.loop)
-    log.info("Stop Traffic")
-    #context.set_state("test_traffic", DONE)
-
-async def chaos(context, rule):
-    # XXX: this is a testing example and will be (re)moved
-    context.set_state("chaos", RUNNING)
-    for i in range(5):
-        log.debug("CHAOS!!")
-        await asyncio.sleep(1, loop=context.loop)
-    log.info("STOP THE CHAOS")
-    #context.set_state("chaos", DONE)
-    rule.complete = True
-
-
 def pet_test():
     return petname.Generate(2, ".")
 
@@ -114,11 +85,14 @@ class Action:
 
     @property
     def name(self):
-        return str(self.command)
+        cmd = self.command
+        if "." in cmd:
+            cmd = cmd.rsplit(".", 1)[1]
+        return str(cmd)
 
     def resolve(self, context):
-        cmd = context.actions.get(self.command)
         resolved = False
+        cmd = context.actions.get(self.command)
         if cmd is not None:
             return cmd
         cmd = None
@@ -136,22 +110,32 @@ class Action:
             cmd = self.command
             if "." in cmd:
                 # This will throw ImportError on failure
-                cmd = utils._resolve(self.cmd)
+                cmd = utils._resolve(cmd)
                 resolved = True
-        context.actions[self.command] = cmd
+        context.actions[self.name] = cmd
         log.debug("Resolved %s to %s", self.command, cmd)
         return cmd
 
     async def execute(self, context, rule):
         cmd = self.resolve(context)
+        if not cmd:
+            raise ValueError(
+                    "Unable to resolve action %s for rule %s",
+                    rule.action, rule)
         context.set_state(rule.name, RUNNING)
-        if isinstance(cmd, Path):
-            result = await self.execute_process(context, cmd, rule)
-        else:
-            # this is a plugin. resolve would have loaded it
-            result = await self.execute_plugin(context, cmd, rule)
-            context.set_state(rule.name, DONE)
-        return result
+        try:
+            if isinstance(cmd, Path):
+                result = await self.execute_process(context, cmd, rule)
+            else:
+                # this is a plugin. resolve would have loaded it
+                result = await self.execute_plugin(context, cmd, rule)
+                context.set_state(rule.name, DONE)
+        except Exception:
+            log.warn("Error in %s's action %s",
+                     rule, rule.action, exc_info=True)
+            raise
+
+            return result
 
     async def execute_plugin(self, context, cmd, rule):
         # Run code that isn't a coro in an executor
@@ -355,9 +339,6 @@ class RuleEngine:
         log.info("Parsing %s" % filelike.name)
         tests = load_suite(filelike)
         context = Context(loop=self.loop, config=self, suite=tests)
-        context.register_action("deploy", deploy)
-        context.register_action("chaos", chaos)
-        context.register_action("test_traffic", test_traffic)
         return context
 
     async def rule_runner(self, rule, context):
@@ -456,11 +437,12 @@ class RuleEngine:
         if self._reported:
             return
         self._reported = True
-        log.info("Generating Report...")
-        for event in context.timeline:
-            log.info(event)
-        if exc_ctx:
-            self.loop.stop()
+        if self.show_report:
+            log.info("Generating Report...")
+            for event in context.timeline:
+                log.info(event)
+            if exc_ctx:
+                self.loop.stop()
 
     async def __call__(self):
         context = self.load_suite(self.config_file.open())

@@ -15,20 +15,19 @@ def test_parser():
     s = rules.load_suite(loader("rules.1.yaml").open())
     # Suite should have one test with 3 rules
     assert len(s) == 1
-    assert len(s[0]) == 3
+    assert len(s[0].rules) == 4
 
 
 def test_rule_conditions():
-    context = O(states={"deploy.done": True})
+    context = O(states={"deploy": "done"})
     s = rules.load_suite(loader("rules.1.yaml").open())
-    t = s[0]
+    t = s[0].rules
     assert t[0].match(context) is True
     assert t[1].match(context) is True
     assert t[2].match(context) is False
 
-    context.states['chaos.done'] = True
-    context.states['test_traffic.done'] = True
-    context.states['test_traffic.running'] = True
+    context.states['chaos'] = "done"
+    context.states['test_traffic'] = "running"
     assert t[0].match(context) is True
     assert t[1].match(context) is False
     assert t[2].match(context) is True
@@ -39,13 +38,3 @@ def test_rule_conditions():
     assert t[0].has("while") is False
     assert t[1].has("while") is False
     assert t[2].has("while") is True
-
-
-@pytest.mark.asyncio
-async def test_ruleengine_loader(event_loop):
-    event_loop.set_debug(True)
-    context = rules.Context(loop=event_loop, suite=[])
-    r = rules.RuleEngine()
-    r.load_suite(loader("rules.1.yaml").open(), context)
-    await r.run_once(context, context.tests[0])
-    await asyncio.gather(*context.tasks.values())
