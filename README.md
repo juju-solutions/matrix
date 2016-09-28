@@ -24,7 +24,8 @@ do things in this way is so we can express the high level test plan in terms of
 rules and states (similar to reactive and layer-cake).
 
     tests:
-    - description: Traffic in the face of Chaos
+    - name: Traffic
+      description: Traffic in the face of Chaos
       rules:
         - do:
             action: deploy
@@ -47,13 +48,12 @@ generating test should be run "until" a state is set (chaos.done) and may be
 invoked more than once by the engine. While the engine is running the traffic
 suite a state (test_traffic based on test name) will be set. This allows
 triggering of the "while" rule which launches another task (chaos) on the
-current deployment. When that task has done what it deems sufficient it can set
-a state which will stop the execution of the traffic test. 
+current deployment. When that task has done what it deems sufficient it can
+exit, which will stop the execution of the traffic test. 
 
 Rules are evaluated continuously until the test completes and may run in
 parallel. Excessive used of parallelism can make failure analysis more
 complicated for the user however.
-
 
 For a system like this to function we must continuously assert the health of
 the running bundle. This means there is a implicit task checking agent/workload
@@ -66,7 +66,8 @@ Tasks
 -----
 
 The system includes a number of built in tasks that are resolved from any do
-clause if no matching file is found in the tests directory. Currently these tasks are
+clause if no matching file is found in the tests directory. Currently these
+tasks are
 
     deploy
         version: *current* | prev
@@ -80,5 +81,16 @@ clause if no matching file is found in the tests directory. Currently these task
 Chaos internally might have a number of named components and mutation events
 that can be used to perturb the model. Configuration there of TBD.
 
+
+Plugins
+--------
+
+If there is no binary on the path of a give do:action: name then the action
+will attempt to load a Python object via a dotted import path. The last object
+should be callable and can expect handler(context, rule) as its signature. The
+context object is the rules Context object and rule is the current Rule
+instance. The object should return a boolean indicating if the rule is
+complete. If the task is designed to run via an 'until' condition it will be
+marked as complete after its task has been cancelled.
 
 

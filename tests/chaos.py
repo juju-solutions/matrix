@@ -1,7 +1,5 @@
 import asyncio
-import logging
 import random
-log = logging.getLogger("chaos")
 
 async def chaos(context, rule):
     chaos_options = [
@@ -11,16 +9,20 @@ async def chaos(context, rule):
       "Scaling up",
       "Scaling down",
       "Killing Juju Agents",
+      "Deposing leader",
       "Sever controller connection",
       "Flipping Tables",
       "All the hippos go berserk"
     ]
-    log.info("Starting chaos")
+    rule.log.info("Starting chaos")
     for i in range(5):
         kind = random.choice(chaos_options)
-        log.debug("CHAOS: %s", kind)
+        rule.log.debug("CHAOS: %s %s", kind, i)
+        context.record(
+                origin="chaos",
+                details=kind,
+                message="Trigger Chaos"
+                )
         await asyncio.sleep(2, loop=context.loop)
-    log.info("Stop the chaos")
-    rule.complete = True
-
-
+    rule.log.info("Stop the chaos")
+    return True

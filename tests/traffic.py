@@ -1,10 +1,12 @@
 import asyncio
-import logging
-log = logging.getLogger("traffic")
 
 async def test_traffic(context, rule):
-    log.info("Start Traffic")
-    for i in range(6):
-        log.debug("TRAFFIC...")
-        await asyncio.sleep(1, loop=context.loop)
-    log.info("Stop Traffic")
+    rule.log.info("Start Traffic")
+    try:
+        for i in range(16):
+            rule.log.debug("TRAFFIC... %s", i)
+            await asyncio.sleep(1, loop=context.loop)
+    except asyncio.CancelledError:
+        pass
+    rule.log.info("Stop Traffic")
+    return True

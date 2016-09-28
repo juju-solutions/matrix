@@ -3,6 +3,7 @@ import argparse
 import logging
 import logging.config
 from pathlib import Path
+import sys
 
 from . import config
 from . import rules
@@ -34,14 +35,14 @@ def setup(matrix, args=None):
     parser.add_argument("-l", "--log-level", default=None)
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
-    parser.add_argument("-i", "--interval", default=2.0, type=float)
-    parser.add_argument("-c", "--config-file", default="matrix.yaml",
-                        type=Path)
+    parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
-    parser.add_argument("-r", "--show-report", action="store_true", default=False)
-
+    parser.add_argument("-r", "--show-report", action="store_true",
+                        default=False)
+    parser.add_argument("config_file", type=open)
     options = parser.parse_args(args, namespace=matrix)
+
     configLogging(options)
     return options
 
