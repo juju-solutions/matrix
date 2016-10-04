@@ -4,7 +4,6 @@ import io
 import json
 import logging
 import os
-import sys
 import traceback
 import yaml
 from pathlib import Path
@@ -27,22 +26,6 @@ def pet_test():
 
 
 @attr.s
-class Event:
-    """A local or remote event tied to the context timeline."""
-    time = attr.ib(convert=float)
-    created = attr.ib()
-    origin = attr.ib()
-    message = attr.ib()
-    details = attr.ib()
-
-    def __str__(self):
-        details = ''
-        if self.details:
-            details = "\n" + self.details
-        return "{}{}".format(self.message, details)
-
-
-@attr.s
 class Timeline(list):
     """A timeline of events"""
 
@@ -50,6 +33,7 @@ class Timeline(list):
 @attr.s
 class Context:
     loop = attr.ib(repr=False)
+    bus = attr.ib(repr=False)
     suite = attr.ib()
     timeline = attr.ib(init=False, default=attr.Factory(Timeline))
     states = attr.ib(init=False, default=attr.Factory(dict))
@@ -58,27 +42,17 @@ class Context:
     waiters = attr.ib(default=attr.Factory(dict), repr=False, init=False)
 
     def set_state(self, name, value):
+        old_value = self.states.get(name)
         self.states[name] = value
         # Cancel any tasks blocked on this state
         waitname = ".".join((name, value))
         for t in self.waiters.get(waitname, []):
             t.cancel()
-
-    def record(self, **kwargs):
-        call_frame = sys._getframe(1)
-        c = call_frame.f_code
-        p = Path(c.co_filename)
-        created = "{}.{}:{}::{}".format(
-                __package__,
-                p,
-                call_frame.f_lineno,
-                c.co_name)
-
-        e = Event(
-                time=self.loop.time(),
-                created=created,
-                **kwargs)
-        self.timeline.append(e)
+        self.bus.dispatch(kind="state.change",
+                          origin="context",
+                          name=name,
+                          old_value=old_value,
+                          new_value=value)
 
 
 @attr.s
@@ -113,7 +87,7 @@ class Action:
             cmd = self.command
             if "." in cmd:
                 # This will throw ImportError on failure
-                cmd = utils._resolve(cmd)
+                cmd = utils.resolve_dotpath(cmd)
                 resolved = True
         context.actions[self.name] = cmd
         log.debug("Resolved %s to %s", self.command, cmd)
@@ -350,14 +324,19 @@ def load_suite(filelike, factory=Suite):
 
 
 class RuleEngine:
-    def __init__(self, loop=None):
-        self.loop = loop if loop else asyncio.get_event_loop()
+    def __init__(self, bus):
+        self.loop = bus.loop
+        self.bus = bus
+
         self._reported = False
 
     def load_suite(self, filelike):
         log.info("Parsing %s" % filelike.name)
         tests = load_suite(filelike)
-        context = Context(loop=self.loop, config=self, suite=tests)
+        context = Context(loop=self.loop,
+                          bus=self.bus,
+                          config=self,
+                          suite=tests)
         return context
 
     async def rule_runner(self, rule, context):
@@ -375,9 +354,9 @@ class RuleEngine:
             context.set_state(rule.name, RUNNING)
             result = await rule.execute(context)
             # The rule has finished executing
-            context.record(
-                    message="Finished rule action: %s" % rule.name,
-                    details=result,
+            self.bus.dispatch(
+                    kind="rule.done",
+                    payload=result,
                     origin=rule.name
                     )
 
@@ -407,10 +386,10 @@ class RuleEngine:
         # if it matches we can trigger it
         # setting states as needed.
         success = False
-        context.record(message="Start test: {} - {}".format(
-            test.name, test.description),
-                       details="",
-                       origin="matrix")
+        self.bus.dispatch(
+                kind="test.start",
+                payload="{} - {}".format(test.name, test.description),
+                origin="matrix")
         runners = []
         for rule in test.rules:
             task = self.loop.create_task(
@@ -431,10 +410,10 @@ class RuleEngine:
                             u.name, rule.name)
                     w.append(task)
 
-            context.record(
-                    message="Create task {}".format(rule.name),
+            self.bus.dispatch(
+                    kind="rule.create",
+                    payload=rule,
                     origin="matrix",
-                    details="",
                     )
 
         # rule_runner will run each rule to completion
@@ -460,12 +439,29 @@ class RuleEngine:
             success = all([bool(t.result()) for t in done])
 
         log.info("%s Complete %s", test.name, success)
+        payload = attr.asdict(test)
+        payload['result'] = success
+        self.bus.dispatch(
+                origin="matrix",
+                kind="test.complete",
+                payload=payload)
+        return success
 
     async def run(self, context):
+        self.bus.dispatch(
+                origin="matrix",
+                kind="test.schedule",
+                payload=context.suite)
         for test in context.suite:
-            await self.run_once(context, test)
+            result = await self.run_once(context, test)
             context.states.clear()
             context.waiters.clear()
+            payload = attr.asdict(test)
+            payload['result'] = result
+            self.bus.dispatch(
+                    origin="matrix",
+                    kind="test.complete",
+                    payload=payload)
 
     def report(self, context, loop=None, exc_ctx=None):
         if exc_ctx:
@@ -482,8 +478,8 @@ class RuleEngine:
             log.info("Generating Report...")
             for event in context.timeline:
                 log.info(event)
-            if exc_ctx:
-                self.loop.stop()
+        if exc_ctx:
+            self.loop.stop()
 
     async def __call__(self):
         try:

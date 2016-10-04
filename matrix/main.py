@@ -3,10 +3,13 @@ import argparse
 import logging
 import logging.config
 from pathlib import Path
-import sys
 
+import urwid
+
+from .bus import Bus, set_default_bus
 from . import config
 from . import rules
+from .view import TUIView, RawView, NoopViewController
 
 
 def configLogging(options):
@@ -35,6 +38,7 @@ def setup(matrix, args=None):
     parser.add_argument("-l", "--log-level", default=None)
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
+    parser.add_argument("-s", "--skin", choices=("tui", "raw"), default="tui")
     parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
@@ -47,14 +51,38 @@ def setup(matrix, args=None):
     return options
 
 
+def unhandled(key):
+    print("Unhandled", key)
+    if key == "ctrl c":
+        raise urwid.ExitMainLoop()
+
+
 def main(args=None):
-    matrix = rules.RuleEngine()
-    options = setup(matrix, args)
     loop = asyncio.get_event_loop()
+    bus = Bus(loop=loop)
+    # logging resolves default bus from the module
+    set_default_bus(bus)
+
+    matrix = rules.RuleEngine(bus=bus)
+    options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
     loop.create_task(matrix())
+
+    if options.skin == "tui":
+        view = TUIView(bus)
+        view_controller = urwid.MainLoop(
+            view.widgets,
+            event_loop=urwid.AsyncioEventLoop(loop=loop),
+            unhandled_input=unhandled)
+    else:
+        view = RawView(bus)
+        view_controller = NoopViewController()
+
     try:
+        loop.create_task(bus.notify(False))
+        view_controller.start()
         loop.run_forever()
     finally:
+        view_controller.stop()
         loop.stop()
         loop.close()

@@ -1,25 +1,11 @@
-from . import utils
-
-# Highlights in logging, color scheme work as
-# per Python's blessings module
-HIGHLIGHTS = {
-    "matrix": "bold_green",
-    "test": "bold_yellow",
-    "fail": "bold_red",
-    "error": "bold_red",
-}
-
-
 LoggingConfig = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "standard": {
             "()": "matrix.utils.HighlightFormatter",
-            "format": "{terminal.bold}{name}:{lineno}:{funcName}{terminal.normal}: {message}",  # noqa
+            "format": "{name}:{lineno}:{funcName}: {message}",  # noqa
             "style": "{",
-            "terminal": utils.TermWriter(),
-            "highlights": HIGHLIGHTS,
             "line_levels": True,
         },
     },
@@ -30,17 +16,24 @@ LoggingConfig = {
     },
     "handlers": {
         "default": {
+            "()": "matrix.utils.EventHandler",
             "formatter": "standard",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
+            "bus": "ext://matrix.bus.default_bus",
             "filters": ["default"],
         },
+        "file": {
+            "()": "logging.FileHandler",
+            "filename": "matrix.log",
+            "mode": "w",
+            "formatter": "standard",
+            "filters": ["default"],
+            }
     },
     "loggers": {
         "": {
-            "handlers": ["default"],
+            "handlers": ["default", "file"],
             "level": "INFO",
-            "propagate": True,
+            "propagate": False,
         },
 
         "asyncio": {
@@ -48,5 +41,11 @@ LoggingConfig = {
             "level": "INFO",
             "propagate": False
         },
-    }
+
+        "bus": {
+            "handlers": ["file"],
+            "level": "DEBUG",
+            "propagate": False
+            }
+   }
 }

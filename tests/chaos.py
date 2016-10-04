@@ -18,10 +18,10 @@ async def chaos(context, rule):
     for i in range(5):
         kind = random.choice(chaos_options)
         rule.log.debug("CHAOS: %s %s", kind, i)
-        context.record(
+        context.bus.dispatch(
                 origin="chaos",
-                details=kind,
-                message="Trigger Chaos"
+                payload=kind,
+                kind="chaos.activate"
                 )
         await asyncio.sleep(2, loop=context.loop)
     rule.log.info("Stop the chaos")
