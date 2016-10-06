@@ -1,8 +1,9 @@
-import builtins
 import collections
+import logging
 
-import attr
 import urwid
+
+log = logging.getLogger("view")
 
 
 class View:
@@ -37,6 +38,10 @@ class BufferedDict(collections.OrderedDict):
         for v in self.values():
             output.append(row_func(v))
         return "\n".join(output)
+
+
+def render_row(row):
+    return "{:18} -> {}".format(row["name"], row.get("state", "pending"))
 
 
 class TUIView(View):
@@ -74,7 +79,6 @@ class TUIView(View):
         self.bus.subscribe(self.show_log, is_log)
         self.bus.subscribe(self.show_rule_state, is_rule)
         self.bus.subscribe(self.show_state, is_state)
-
         self.bus.subscribe(self.handle_tests, is_test)
 
     def handle_tests(self, e):
@@ -85,7 +89,7 @@ class TUIView(View):
             self.pile.contents.insert(0, (self.progress, self.pile.options()))
         elif e.kind == "test.started":
             # indicate running
-            pass
+            self.add_log("Starting Test: %s" % e.payload['name'])
         elif e.kind == "test.complete":
             # status symbol
             self.run_ct += 1
@@ -97,28 +101,23 @@ class TUIView(View):
             self.run_total,
             " ".join([symbol[r] for r in self.results])))
 
-    def show_log(self, event):
-        self.status_view.append(event.payload.output)
+    def add_log(self, msg):
+        self.status_view.append(msg)
         self.status.set_text(self.status_view.render())
+
+    def show_log(self, event):
+        self.add_log(event.payload.output)
 
     def show_rule_state(self, event):
         t = event.payload
-        d = attr.asdict(t)
-        d['name'] = t.name
-        self.task_view[t.name] = d
-
-        def render_row(row):
-            return "{:18} pending".format(row["name"])
-
+        self.task_view.setdefault(t['name'], {}).update(t)
         self.tasks.set_text(self.task_view.render(render_row))
 
     def show_state(self, event):
+        if event.kind != "state.change":
+            return
         sc = event.payload
         self.task_view[sc['name']]['state'] = sc['new_value']
-
-        def render_row(row):
-            return "{:18} {}".format(row["name"], row["state"])
-
         self.tasks.set_text(self.task_view.render(render_row))
 
 
@@ -128,8 +127,20 @@ class RawView(View):
                 self.show_log,
                 lambda e: e.kind == "logging.message")
 
+        def is_test(e):
+            return e.kind.startswith("test")
+
+        self.bus.subscribe(self.show_test, is_test)
+
     def show_log(self, e):
         print(e.payload.output)
+
+    def show_test(self, e):
+        test = e.payload
+        if e.kind == "test.start":
+            print("Start Test", test["name"], test.get("description"))
+        elif e.kind == "test.complete":
+            print("Test Complete", test["name"], test["result"])
 
 
 class NoopViewController:

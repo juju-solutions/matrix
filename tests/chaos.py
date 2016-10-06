@@ -19,19 +19,22 @@ async def chaos(context, rule, action):
 
     # Check to see if the plugin's config specifies a specific list of
     # operations to perform.
-    operations = rule.config.chaos_ops # TODO: is this the right way
-                                       # to get the config for a rule?
+    operations = action.args.get('operations')
     if not operations:
         # No operations specified; generate a list. Use a random seed
         # if no seed is specified in the config.
-        seed = rule.config.chaos_seed or int.from_bytes(
-            urandom(4), byteorder='little')
-        rule.log.info('Running chaos with seed {}'.format(seed))
-        num_ops = rule.config.num_ops
+        seed = 0 if action.args.get("deterministic", True) else (
+                int.from_bytes(urandom(4), byteorder="little"))
+        rule.log.debug('Running chaos with seed {}'.format(seed))
+        # XXX: look at choosing number and types of ops based on models
+        # ex: we can identify SPoF by looking but can those units recover at all?
+        # XXX: we are also missing the notion of which services or units
+        # these ops apply to, which may be critical to reproducibility
+        num_ops = action.args.get("num_ops", 5)
         operations = [random.choice(chaos_options) for i in range(num_ops)]
 
-    for op in operations:
-        rule.log.debug("CHAOS: %s %s", kind, i)
+    for i, op in enumerate(operations):
+        rule.log.debug("CHAOS: %s %s", op, i)
         context.bus.dispatch(
                 origin="chaos",
                 payload=op,

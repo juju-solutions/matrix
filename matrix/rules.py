@@ -48,11 +48,12 @@ class Context:
         waitname = ".".join((name, value))
         for t in self.waiters.get(waitname, []):
             t.cancel()
-        self.bus.dispatch(kind="state.change",
-                          origin="context",
-                          name=name,
-                          old_value=old_value,
-                          new_value=value)
+        if old_value != value:
+            self.bus.dispatch(kind="state.change",
+                              origin="context",
+                              name=name,
+                              old_value=old_value,
+                              new_value=value)
 
 
 @attr.s
@@ -221,6 +222,12 @@ class Rule:
         self.complete = result is True
         return result
 
+    def asdict(self, result=None):
+        data = attr.asdict(self)
+        data['name'] = self.name
+        data['result'] = result
+        return data
+
     async def until(self, context):
         while True:
             # make sure we execute at least once
@@ -342,6 +349,12 @@ class RuleEngine:
 
     async def rule_runner(self, rule, context):
         result = None
+        self.bus.dispatch(
+                kind="rule.create",
+                payload=rule.asdict(),
+                origin="matrix",
+        )
+
         while True:
             # ENTER
             if not rule.match(context):
@@ -354,12 +367,6 @@ class RuleEngine:
             # we should spawn the task and record states for it in context
             context.set_state(rule.name, RUNNING)
             result = await rule.execute(context)
-            # The rule has finished executing
-            self.bus.dispatch(
-                    kind="rule.done",
-                    payload=result,
-                    origin=rule.name
-                    )
 
             # EXIT
             period = rule.action.args.get("periodic")
@@ -380,6 +387,12 @@ class RuleEngine:
                 # a lock/condition such that we don't progress testing
                 # until we've assessed system health
                 await asyncio.sleep(period, loop=self.loop)
+
+        self.bus.dispatch(
+                kind="rule.done",
+                payload=rule.asdict(result),
+                origin=rule.name
+                )
         return result
 
     async def run_once(self, context, test):
@@ -389,7 +402,7 @@ class RuleEngine:
         success = False
         self.bus.dispatch(
                 kind="test.start",
-                payload="{} - {}".format(test.name, test.description),
+                payload=attr.asdict(test),
                 origin="matrix")
         runners = []
         for rule in test.rules:
@@ -410,12 +423,6 @@ class RuleEngine:
                             "Adding task to wait list on %s for rule %s",
                             u.name, rule.name)
                     w.append(task)
-
-            self.bus.dispatch(
-                    kind="rule.create",
-                    payload=rule,
-                    origin="matrix",
-                    )
 
         # rule_runner will run each rule to completion
         # (either success or failure) and then terminate here
@@ -454,15 +461,9 @@ class RuleEngine:
                 kind="test.schedule",
                 payload=context.suite)
         for test in context.suite:
-            result = await self.run_once(context, test)
+            await self.run_once(context, test)
             context.states.clear()
             context.waiters.clear()
-            payload = attr.asdict(test)
-            payload['result'] = result
-            self.bus.dispatch(
-                    origin="matrix",
-                    kind="test.complete",
-                    payload=payload)
 
     def report(self, context, loop=None, exc_ctx=None):
         if exc_ctx:
@@ -478,18 +479,15 @@ class RuleEngine:
         if self.show_report:
             for event in context.timeline:
                 log.info(event)
-        if exc_ctx:
-            self.loop.stop()
 
     async def __call__(self):
-        try:
-            context = self.load_suite(self.config_file)
-            reporter = functools.partial(self.report, context)
-            self.loop.set_exception_handler(reporter)
-            await self.run(context)
-            self.report(context)
-        except:
-            self.loop.stop()
-            raise
-        else:
-            self.loop.stop()
+        btask = self.loop.create_task(self.bus.notify(False))
+        context = self.load_suite(self.config_file)
+        reporter = functools.partial(self.report, context)
+        self.loop.set_exception_handler(reporter)
+        await self.run(context)
+        # Wait for any unprocessed events before exiting the loop
+        self.bus.shutdown()
+        await btask
+        self.loop.stop()
+        self.report(context)

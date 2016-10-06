@@ -18,7 +18,6 @@ class Event:
     origin = attr.ib(init=False)   # an object or subsystem that spawned the event
     kind = attr.ib(init=False)     # a (dotted) string indicating the kind of event
     payload = attr.ib(default=None)  # object for payload, ex: kind based map
-    handled = attr.ib(init=False, default=False)
 
     def __str__(self):
         return "{} -> {} {!r}".format(self.origin, self.kind, self.payload)
@@ -29,6 +28,8 @@ class Bus:
         self.loop = loop or asyncio.get_event_loop()
         self.__subscriptions = {}
         self.__queue = asyncio.Queue()
+        self._exit_on_exception = False
+        self.should_run = True
 
     def subscribe(self, subscriber, *conditions):
         if not callable(subscriber):
@@ -112,10 +113,7 @@ class Bus:
                     except AttributeError:
                         name = str(subscriber)
 
-                    #log.debug("#%d %s -> %s",
-                    #          evt_ct,
-                    #          event,
-                    #          name)
+                    log.debug("#%d %s -> %s", evt_ct, event, name)
                     applied = True
 
                     try:
@@ -123,34 +121,38 @@ class Bus:
                             await subscriber(event)
                         else:
                             subscriber(event)
-                        event.handled = True
                     except Exception:
-                        pass
-                        #log.warn("Exception %s for %s %d",
-                        #         subscriber.__func__.__qualname__,
-                        #         event,
-                        #         evt_ct,
-                        #         exc_info=True,
-                        #         stack_info=True)
-                        #if self._exit_on_exception is True:
-                        #    return self.shutdown()
+                        log.warn("Exception %s for %s %d",
+                                 subscriber.__func__.__qualname__,
+                                 event,
+                                 evt_ct,
+                                 exc_info=True,
+                                 stack_info=True)
+                        if self._exit_on_exception is True:
+                            self.shutdown()
+                            return
 
-            #if not applied:
-            #    log.debug("Unhandled event %s %d", event, evt_ct)
+            if not applied:
+                log.debug("Unhandled event %s %d", event, evt_ct)
 
             # Track the event after it has been applied
             if self.__queue.qsize() == 0:
-                if until_complete is True:
-                    #logging.debug("Bus Complete, exiting")
+                if until_complete is True or self.should_run is False:
+                    log.debug("Bus Complete, exiting")
                     break
 
     def shutdown(self):
-        self.loop.set_debug(False)
-        self.loop.set_exception_handler(lambda l, ctx: None)
-        raise SystemExit
+        self.should_run = False
 
 
 default_bus = None
+
+
+def get_default_bus():
+    global default_bus
+    if not default_bus:
+        set_default_bus()
+    return default_bus
 
 
 def set_default_bus(bus=None, loop=None):

@@ -66,7 +66,7 @@ def main(args=None):
     matrix = rules.RuleEngine(bus=bus)
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
-    loop.create_task(matrix())
+    mtask = loop.create_task(matrix())
 
     if options.skin == "tui":
         view = TUIView(bus)
@@ -79,9 +79,8 @@ def main(args=None):
         view_controller = NoopViewController()
 
     try:
-        loop.create_task(bus.notify(False))
         view_controller.start()
-        loop.run_forever()
+        loop.run_until_complete(mtask)
     finally:
         view_controller.stop()
         loop.stop()

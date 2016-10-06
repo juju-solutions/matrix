@@ -37,7 +37,7 @@ LoggingConfig = {
         },
 
         "asyncio": {
-            "handlers": ["default"],
+            "handlers": ["default", "file"],
             "level": "INFO",
             "propagate": False
         },
