@@ -1,7 +1,7 @@
 import asyncio
 import random
 
-async def chaos(context, rule):
+async def chaos(context, rule, action):
     chaos_options = [
       "Reboot Unit",
       "Remove Unit",

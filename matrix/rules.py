@@ -121,20 +121,21 @@ class Action:
     async def execute_plugin(self, context, cmd, rule):
         # Run code that isn't a coro in an executor
         if not asyncio.iscoroutinefunction(cmd):
-            ctxcmd = functools.partial(cmd, context, rule)
+            ctxcmd = functools.partial(cmd, context, rule, self)
             result = await context.loop.run_in_executor(ctxcmd)
         else:
-            result = await cmd(context, rule)
+            result = await cmd(context, rule, self)
         return result
 
     async def execute_process(self, context, cmd, rule):
         def attr_filter(a, v):
             return a.repr is True
-
-        data = json.dumps(attr.asdict(
-                            context,
-                            recurse=True,
-                            filter=attr_filter)).encode("utf-8")
+        data = attr.asdict(
+                context,
+                recurse=True,
+                filter=attr_filter)
+        data['args'] = self.args
+        data = json.dumps(data).encode("utf-8")
         path = "{}:{}".format(str(context.config.path),
                               os.environ.get("PATH", ""))
         try:
@@ -475,7 +476,6 @@ class RuleEngine:
             return
         self._reported = True
         if self.show_report:
-            log.info("Generating Report...")
             for event in context.timeline:
                 log.info(event)
         if exc_ctx:
