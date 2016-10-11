@@ -26,7 +26,7 @@ async def glitch(context, rule, action):
     rule.log.info("Writing glitch plan to {}".format(output_file))
     with open(output_filename, 'w') as output_file:
         output_file.write(yaml.dump(glitch_plan))
-    
+
     # Execute glitch plan. We perform destructive operations here!
     for action in glitch_plan:
         selectors = action.pop('selectors')

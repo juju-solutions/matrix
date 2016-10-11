@@ -105,6 +105,3 @@ def one(model, units=None):
     units = units or model.units
 
     return [random.select(units)]
-
-
-
