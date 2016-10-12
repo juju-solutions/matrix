@@ -4,6 +4,8 @@ import asyncio
 #
 # Scaffolding
 #
+# TODO: refactor to match what we did with selectors.
+#
 
 ACTION_MAP = {}
 

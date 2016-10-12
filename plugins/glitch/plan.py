@@ -1,5 +1,35 @@
 import random
 
+from .selectors import Selectors
+
+
+class InvalidPlan(Exception):
+    pass
+
+
+def _validate_plan(plan):
+    # TODO: flesh this out; possibly use something nicer than assert
+    assert 'operations' in plan
+
+    for action in plan['operations']:
+        assert 'action' in action
+        if not action.get('selectors'):
+            continue
+        selectors = [s['selector'] for s in action['selectors']]
+        assert Selectors.valid_chain(selectors)
+
+    return plan
+
+
+def validate_plan(plan):
+    try:
+        plan = _validate_plan(plan)
+    except (AssertionError, KeyError) as e:
+        # TODO: better messaging/catching for KeyErrors
+        raise InvalidPlan('Invalid plan: {}'.format(e))
+
+    return plan
+
 
 def generate_plan(model, num, action_map):
     '''
@@ -41,7 +71,7 @@ def generate_plan(model, num, action_map):
         selectors = [
             {'selector': 'units', 'application': unit.application},
             {'selector': 'leader', 'application': unit.is_leader()},
-            {'selector': 'count', 'value': 1},
+            {'selector': 'one'},
         ]
 
         plan['actions'].append(
