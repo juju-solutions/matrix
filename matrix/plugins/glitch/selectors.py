@@ -67,7 +67,7 @@ class Selectors(object):
                     return False
 
                 if len(selectors) == 1:
-                    # A chain comprised of only a starter is valid.
+                    # A chain comprising only a starter is valid.
                     return True
 
                 return chain(
