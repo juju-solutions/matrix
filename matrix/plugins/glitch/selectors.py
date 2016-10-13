@@ -116,7 +116,7 @@ def units(model, nounits, applications=None):
 
     units = []
     for a in apps:
-        units += a.units()
+        units += a.units
 
     return units
 
@@ -126,6 +126,8 @@ def leader(model, units, value=True):
     '''
     Return just the units that are, or are not the leader, depending
     on whether 'value' is truthy or falsy.
+
+    TODO: fix this to actually check for leadership.
 
     '''
     return [u for u in units if u.is_leader is value]
@@ -170,4 +172,4 @@ def one(model, objects):
     just selecting the first unit in the list.
 
     '''
-    return [random.select(objects)]
+    return [random.choice(objects)]

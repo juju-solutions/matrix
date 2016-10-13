@@ -18,7 +18,7 @@ def select(model, selectors, objects=None):
         return objects
 
     selector = selectors.pop(0)
-    selectf = Selectors.func[selector.pop['selector']]
+    selectf = Selectors.func(selector.pop('selector'))
     objects = selectf(model, objects, **selector)
 
     return select(model, selectors, objects)
@@ -47,12 +47,12 @@ async def glitch(context, rule, action):
             num=action.args.get('glitch_num', 5),
             action_map=action_map))
 
-    rule.log.info("Writing glitch plan to {}".format(output_file))
+    rule.log.info("Writing glitch plan to {}".format(output_filename))
     with open(output_filename, 'w') as output_file:
         output_file.write(yaml.dump(glitch_plan))
 
     # Execute glitch plan. We perform destructive operations here!
-    for action in glitch_plan:
+    for action in glitch_plan['actions']:
         actionf = action_map[action.pop('action')]
         selectors = action.pop('selectors')
 

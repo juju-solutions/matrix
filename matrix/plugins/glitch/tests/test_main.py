@@ -16,6 +16,7 @@ class TestGlitch(unittest.TestCase):
 
         self.set_model()
         self.context.model = self.model
+        self.context.loop = self.loop
 
     def set_model(self):
         async def _set_model():

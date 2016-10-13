@@ -7,26 +7,25 @@ class InvalidPlan(Exception):
     pass
 
 
-def _validate_plan(plan):
-    # TODO: flesh this out; possibly use something nicer than assert
-    assert 'operations' in plan
+def validate_plan(plan):
+    '''
+    Validate our plan. Raise an InvalidPlan exception with a helpful
+    error message if we run into anything that is not valid.
 
-    for action in plan['operations']:
-        assert 'action' in action
+    '''
+    if not 'actions' in plan:
+        raise InvalidPlan('Plan missing "actions" key: {}'.format(plan))
+
+    for action in plan['actions']:
+        if not 'action' in action:
+            raise InvalidPlan('Action missing "action" key: {}'.format(action))
+
         if not action.get('selectors'):
             continue
+
         selectors = [s['selector'] for s in action['selectors']]
-        assert Selectors.valid_chain(selectors)
-
-    return plan
-
-
-def validate_plan(plan):
-    try:
-        plan = _validate_plan(plan)
-    except (AssertionError, KeyError) as e:
-        # TODO: better messaging/catching for KeyErrors
-        raise InvalidPlan('Invalid plan: {}'.format(e))
+        if not Selectors.valid_chain(selectors):
+            raise InvalidPlan('Action has invalid chain of selectors: {}'.format(selectors))
 
     return plan
 
@@ -38,7 +37,7 @@ def generate_plan(model, num, action_map):
 
     glitch:
       format: v1
-      operations:
+      actions:
         - action: reboot
           inflight: 1
           interval: 5m
@@ -68,12 +67,9 @@ def generate_plan(model, num, action_map):
     for i in range(0, num):
         unit = random.choice(units)
         action = random.choice([v for v in action_map.values()])
-        print(dir(unit))
-        print(unit)
-        print(unit.application)
         # Setup implicit selectors
         selectors = [
-            {'selector': 'units', 'application': unit.application},
+            {'selector': 'units', 'applications': [unit.application]},
             # TODO: Call is-leader via run, I think
             #{'selector': 'leader', 'application': unit.is_leader()},
             {'selector': 'one'},
@@ -81,7 +77,7 @@ def generate_plan(model, num, action_map):
 
         plan['actions'].append(
             {
-                'action': action,
+                'action': action.__name__,
                 # TODO: get some good default args for each action
                 'selectors': selectors
             }
