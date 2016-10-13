@@ -60,17 +60,22 @@ def generate_plan(model, num, action_map):
     plan = {'actions': []}
 
     apps = model.applications
+    print("model.applications: {}".format(apps))
     units = []
-    for a in apps:
-        units += a.units()
+    for a in apps.values():
+        units += a.units
 
     for i in range(0, num):
-        unit = random.select.unit()
-        action = random.select(action_map)['action']
+        unit = random.choice(units)
+        action = random.choice([v for v in action_map.values()])
+        print(dir(unit))
+        print(unit)
+        print(unit.application)
         # Setup implicit selectors
         selectors = [
             {'selector': 'units', 'application': unit.application},
-            {'selector': 'leader', 'application': unit.is_leader()},
+            # TODO: Call is-leader via run, I think
+            #{'selector': 'leader', 'application': unit.is_leader()},
             {'selector': 'one'},
         ]
 

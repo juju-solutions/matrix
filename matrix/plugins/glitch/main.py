@@ -39,10 +39,11 @@ async def glitch(context, rule, action):
 
     glitch_output = []
     output_filename = DEFAULT_OUTPUT  # TODO: make configurable.
+    model = context.model
 
     glitch_plan = validate_plan(
         action.args.get('glitch_plan') or generate_plan(
-            context.model,
+            model,
             num=action.args.get('glitch_num', 5),
             action_map=action_map))
 
