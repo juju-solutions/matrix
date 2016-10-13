@@ -6,20 +6,22 @@ from .selectors import Selectors
 from .actions import ACTION_MAP as action_map
 from .plan import generate_plan, validate_plan
 
+
 DEFAULT_OUTPUT = '/tmp/last_glitch_plan.yaml'
 
-def select_units(model, selectors, units=None):
+
+def select(model, selectors, objects=None):
     if len(selectors) == 0:
-        if units is None:
+        if objects is None:
             # TODO: custom Exception class
-            raise Exception('No valid units specified by selectors')
-        return units
+            raise Exception('No valid objects specified by selectors')
+        return objects
 
     selector = selectors.pop(0)
     selectf = Selectors.func[selector.pop['selector']]
-    units = selectf(model, units, **selector)
+    objects = selectf(model, objects, **selector)
 
-    return select_units(model, selectors, units)
+    return select(model, selectors, objects)
 
 
 async def glitch(context, rule, action):
@@ -54,13 +56,13 @@ async def glitch(context, rule, action):
         selectors = action.pop('selectors')
 
         # Find a set of units to act upon
-        units = select_units(model, selectors)
+        objects = select(model, selectors)
 
         # Run the specified action on those units
         rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
         context.bus.dispatch(
             origin="glitch",
-            payload=functools.partial(actionf, **action),
+            payload=functools.partial(actionf, objects, **action),
             kind="glitch.activate"
         )
         await asyncio.sleep(2, loop=context.loop)
