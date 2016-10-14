@@ -5,6 +5,11 @@ import urwid
 
 log = logging.getLogger("view")
 
+palette = [
+        ("header", "white", "black", "standout"),
+        ("focused", "black", "dark cyan", "standout")
+        ]
+
 
 class View:
     def __init__(self, bus):
@@ -40,24 +45,29 @@ class BufferedDict(collections.OrderedDict):
         return "\n".join(output)
 
 
+class SelectableText(urwid.Edit):
+    def valid_char(self, ch):
+        return False
+
+
 def render_row(row):
     return "{:18} -> {}".format(row["name"], row.get("state", "pending"))
 
 
 class TUIView(View):
     def build_ui(self):
-        self.status = urwid.Text("")
-        self.status_view = BufferedList(10)
-
         self.tasks = urwid.Text("")
         self.task_view = BufferedDict(6)
-
+        self.status = urwid.Text("")
+        self.status_view = BufferedList(10)
         self.run_ct = 0
         self.results = []
 
         self.pile = urwid.Pile([
-                    self.tasks,
-                    self.status,
+                    urwid.Text(("header", "Matrix")),
+                    urwid.Divider(),
+                    urwid.LineBox(self.tasks),
+                    urwid.LineBox(self.status),
                     ])
         self.widgets = urwid.Filler(
                 self.pile,
@@ -82,24 +92,56 @@ class TUIView(View):
         self.bus.subscribe(self.handle_tests, is_test)
 
     def handle_tests(self, e):
+        name = ""
         if e.kind == "test.schedule":
             # we can set the progress bar up
             self.run_total = len(e.payload)
             self.progress = urwid.Text("")
-            self.pile.contents.insert(0, (self.progress, self.pile.options()))
-        elif e.kind == "test.started":
+            self.pile.contents.insert(2, (self.progress, self.pile.options()))
+        elif e.kind == "test.start":
             # indicate running
-            self.add_log("Starting Test: %s" % e.payload['name'])
+            name = e.payload.name
+            self.add_log("Starting Test: %s" % name)
         elif e.kind == "test.complete":
             # status symbol
             self.run_ct += 1
-            self.results.append(e.payload['result'])
+            self.results.append(e.payload.result)
 
         symbol = {True: "✓", False: "✕"}
-        self.progress.set_text("{}/{} {}".format(
+        self.progress.set_text("{}/{} {} {}".format(
             self.run_ct,
             self.run_total,
-            " ".join([symbol[r] for r in self.results])))
+            " ".join([symbol[r] for r in self.results]),
+            name))
+
+        if e.kind == "test.finish":
+            self.show_timeline(e)
+
+    def show_timeline(self, e):
+        p = self.pile
+        context = e.payload
+        events = []
+        # remove status/task widgets
+        p.contents = p.contents[:3]
+        for evt in context.timeline:
+            tl = SelectableText(str(evt))
+            tl = urwid.AttrMap(tl, None, "focused")
+            events.append(tl)
+
+        def quit_handler(edit, new_text):
+            if new_text.lower() == "q":
+                self.bus.shutdown()
+
+        quitter = urwid.Edit("Press 'q' to exit... ", multiline=False)
+        events.append(quitter)
+        urwid.connect_signal(quitter, "change", quit_handler)
+
+        body = urwid.SimpleFocusListWalker(events)
+        listbox = urwid.ListBox(body)
+        ba = urwid.BoxAdapter(listbox, 20)
+        p.contents.append((ba, p.options()))
+        listbox.focus_position = len(body) - 1
+        self.pile.focus_position = len(self.pile.contents) - 1
 
     def add_log(self, msg):
         self.status_view.append(msg)
@@ -138,9 +180,18 @@ class RawView(View):
     def show_test(self, e):
         test = e.payload
         if e.kind == "test.start":
-            print("Start Test", test["name"], test.get("description"))
+            print("Start Test", test.name, test.description)
         elif e.kind == "test.complete":
-            print("Test Complete", test["name"], test["result"])
+            print("Test Complete", test.name, test.result)
+        elif e.kind == "test.finish":
+            self.show_results(e.payload)
+
+    def show_results(self, context):
+        print("Run Complete")
+        symbol = {True: "✓", False: "✕"}
+        for test in context.suite:
+            print("{:18} {}".format(test.name, symbol[test.result]))
+        self.bus.shutdown()
 
 
 class NoopViewController:

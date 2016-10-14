@@ -1,7 +1,10 @@
 import asyncio
+import fnmatch
+import functools
 import json
 import logging
 import os
+import time
 
 import attr
 from pathlib import Path
@@ -12,6 +15,24 @@ RUNNING = "running"
 DONE = "done"
 
 log = logging.getLogger("matrix")
+
+
+@attr.s
+class Event:
+    """A local or remote event tied to the context timeline."""
+    time = attr.ib(init=False, convert=float)
+    created = attr.ib(init=False)
+    origin = attr.ib(init=False)   # subsystem that spawned the event
+    kind = attr.ib(init=False)     # a string indicating the kind of event
+    payload = attr.ib(default=None)  # object for payload, ex: kind based map
+
+    def __str__(self):
+        return "{}:{}:: {} {}\n{!s}".format(
+                time.ctime(self.time),
+                self.created,
+                self.origin,
+                self.kind,
+                self.payload)
 
 
 @attr.s
@@ -43,6 +64,9 @@ class Context:
                               name=name,
                               old_value=old_value,
                               new_value=value)
+
+    def __str__(self):
+        return "Context object"
 
 
 @attr.s
@@ -108,16 +132,40 @@ class Action:
 
         return result
 
-    async def execute_plugin(self, context, cmd, rule):
+    async def execute_event(self, context, rule):
+        # create and manage an event subscriber
+        # for the condition in an "on" clause
+        # when the "on" condition's statement is matched
+        # to event.kind we use the curried handler
+        # additionally passing the event itself.
+        # XXX: this changes the call signature from other types of
+        # plugins, maybe that additionally needs kwargs
+        # call sig: callback(context, rule, action, event)
+        cmd = self.resolve(context)
+        async def event_wrapper(event):
+            if isinstance(cmd, Path):
+                callback = self.execute_process
+            else:
+                callback = self.execute_plugin
+            return await callback(context, cmd, rule, event)
+
+        # XXX: handle in loop?
+        on_cond = rule.select("on")[0]
+
+        def is_cond(e):
+            return fnmatch.fnmatch(e.kind, on_cond.statement[0])
+        return context.bus.subscribe(event_wrapper, is_cond)
+
+    async def execute_plugin(self, context, cmd, rule, event=None):
         # Run code that isn't a coro in an executor
         if not asyncio.iscoroutinefunction(cmd):
-            ctxcmd = functools.partial(cmd, context, rule, self)
+            ctxcmd = functools.partial(cmd, context, rule, self, event)
             result = await context.loop.run_in_executor(ctxcmd)
         else:
-            result = await cmd(context, rule, self)
+            result = await cmd(context, rule, self, event)
         return result
 
-    async def execute_process(self, context, cmd, rule):
+    async def execute_process(self, context, cmd, rule, event=None):
         def attr_filter(a, v):
             return a.repr is True
         data = attr.asdict(
@@ -125,6 +173,11 @@ class Action:
                 recurse=True,
                 filter=attr_filter)
         data['args'] = self.args
+        if event:
+            data['event'] = attr.asdict(
+                    event, recurse=True,
+                    filter=attr_filter)
+
         data = json.dumps(data).encode("utf-8")
         path = "{}:{}".format(str(context.config.path),
                               os.environ.get("PATH", ""))
@@ -151,14 +204,19 @@ class Action:
 
 @attr.s
 class Condition:
+    # mode: trigger keys, see below
     mode = attr.ib()
+    # statement: [<statename>, DONE|RUNNING]
     statement = attr.ib()
 
     TRIGGERS = {
             "after": [DONE],
             "while": [RUNNING],
             "when": [RUNNING, DONE],
-            "until": lambda c, r: r != c.statement[1]
+            "until": lambda c, r: r != c.statement[1],
+            "on": lambda c, r: True,  # bus event triggers only on conditions
+                                      # don't block rule activation by
+                                      # themselves
             }
 
     def resolve(self, context):
@@ -206,6 +264,10 @@ class Rule:
     def select(self, clause):
         return [c for c in self.conditions if c.mode == clause]
 
+    async def execute_event(self,  context):
+        result = await self.action.execute_event(context, self)
+        return result
+
     async def execute(self, context):
         result = await self.action.execute(context, self)
         self.complete = result is True
@@ -216,5 +278,3 @@ class Rule:
         data['name'] = self.name
         data['result'] = result
         return data
-
-

@@ -2,7 +2,7 @@ import asyncio
 import random
 from os import urandom
 
-async def chaos(context, rule, action):
+async def chaos(context, rule, action, event=None):
     chaos_options = [
       "Reboot Unit",
       "Remove Unit",
