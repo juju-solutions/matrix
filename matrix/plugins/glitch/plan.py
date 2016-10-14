@@ -1,9 +1,12 @@
 import random
 
 from .selectors import Selectors
-
+from .actions import Actions
 
 class InvalidPlan(Exception):
+    pass
+
+class InvalidModel(Exception):
     pass
 
 
@@ -30,7 +33,7 @@ def validate_plan(plan):
     return plan
 
 
-def generate_plan(model, num, action_map):
+def generate_plan(model, num):
     '''
     Generate a test plan. The resultant plan, if written out to a
     .yaml file, would look something like the following:
@@ -64,9 +67,12 @@ def generate_plan(model, num, action_map):
     for a in apps.values():
         units += a.units
 
+    if not units:
+        raise InvalidModel('No units to test in the current model.')
+
     for i in range(0, num):
         unit = random.choice(units)
-        action = random.choice([v for v in action_map.values()])
+        action = random.choice([a for a in Actions.actions()])
         # Setup implicit selectors
         selectors = [
             {'selector': 'units', 'applications': [unit.application]},
@@ -77,7 +83,7 @@ def generate_plan(model, num, action_map):
 
         plan['actions'].append(
             {
-                'action': action.__name__,
+                'action': action,
                 # TODO: get some good default args for each action
                 'selectors': selectors
             }

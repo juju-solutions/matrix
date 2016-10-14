@@ -1,39 +1,59 @@
 import asyncio
+from functools import wraps
 
 
-#
-# Scaffolding
-#
-# TODO: refactor to match what we did with selectors.
-#
-
-ACTION_MAP = {}
-
-
-def action(func):
+class Actions(object):
     '''
-    Add a function to our dict of actions
+    Interface for registering actions, translating text strings into
+    action functions, and performing automagic around our action
+    functions.
 
     '''
-    ACTION_MAP[func.__name__] = func
-    return func
+    action_map = {}
 
+    @classmethod
+    def decorator(cls, func):
+        '''
+        Register an action with our action _map. Return a function that
+        accepts a set of objects, and iterates over that set, running
+        the registered action on each object in that set.
+
+        '''
+        async def wrapped(model, objects, **kwargs):
+            for obj in objects:
+                await func(model, obj, **kwargs)
+        cls.action_map[func.__name__] = wrapped
+        return wrapped
+
+    @classmethod
+    def func(cls, action):
+        '''
+        Given an action name, return a function with that name.
+
+        '''
+        return cls.action_map[action]
+
+    @classmethod
+    def actions(cls):
+        '''Fetch a list of all actions in our action map.'''
+        return [a for a in cls.action_map.keys()]
+
+# Give our decorator a better name
+action = Actions.decorator
 
 #
 # Define your actions here
 #
 @action
-async def reboot(units):
+async def reboot(model, unit):
     '''
     Given a set of units, send a reboot command to all of them.
 
     '''
-    for unit in units:
-        # TODO: replace 'run_action' with the actual method in libjuju.
-        unit.run_action('reboot')
+    await unit.run('sudo reboot')
 
 
-async def sleep(seconds=2):
+async def sleep(nomodel, noobj, seconds=2):
     '''Sleep for the given number of seconds.'''
     print("foo")
     await asyncio.sleep(seconds)

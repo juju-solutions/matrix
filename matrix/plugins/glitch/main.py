@@ -3,7 +3,7 @@ import functools
 import yaml
 
 from .selectors import Selectors
-from .actions import ACTION_MAP as action_map
+from .actions import Actions
 from .plan import generate_plan, validate_plan
 
 
@@ -44,8 +44,7 @@ async def glitch(context, rule, action):
     glitch_plan = validate_plan(
         action.args.get('glitch_plan') or generate_plan(
             model,
-            num=action.args.get('glitch_num', 5),
-            action_map=action_map))
+            num=action.args.get('glitch_num', 5)))
 
     rule.log.info("Writing glitch plan to {}".format(output_filename))
     with open(output_filename, 'w') as output_file:
@@ -53,7 +52,7 @@ async def glitch(context, rule, action):
 
     # Execute glitch plan. We perform destructive operations here!
     for action in glitch_plan['actions']:
-        actionf = action_map[action.pop('action')]
+        actionf = Actions.func(action.pop('action'))
         selectors = action.pop('selectors')
 
         # Find a set of units to act upon
@@ -63,7 +62,7 @@ async def glitch(context, rule, action):
         rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
         context.bus.dispatch(
             origin="glitch",
-            payload=functools.partial(actionf, objects, **action),
+            payload=functools.partial(actionf, model, objects, **action),
             kind="glitch.activate"
         )
         await asyncio.sleep(2, loop=context.loop)

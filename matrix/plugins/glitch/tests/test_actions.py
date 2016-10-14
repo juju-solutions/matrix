@@ -1,22 +1,16 @@
 import unittest
 
-from glitch.actions import action, ACTION_MAP
+from glitch.actions import Actions, action
 
 class TestAction(unittest.TestCase):
-    def setUp(self):
-        self.old_actions = ACTION_MAP
-
-    def tearDown(self):
-        ACTION_MAP = self.old_actions
-
     def test_define(self):
-        self.assertFalse('faux_action' in ACTION_MAP.keys())
+        self.assertFalse('faux_action' in Actions.action_map.keys())
 
         @action
-        def faux_action(model, *args, **kwargs):
+        def faux_action(model, unit, **kwargs):
             pass
 
-        self.assertTrue('faux_action' in ACTION_MAP.keys())
+        self.assertTrue('faux_action' in Actions.action_map.keys())
 
 if __name__ == '__main__':
     unittest.main()
