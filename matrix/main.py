@@ -9,7 +9,7 @@ import urwid
 from .bus import Bus, set_default_bus
 from . import config
 from . import rules
-from .view import TUIView, RawView, NoopViewController
+from .view import TUIView, RawView, NoopViewController, palette
 
 
 def configLogging(options):
@@ -42,9 +42,8 @@ def setup(matrix, args=None):
     parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
-    parser.add_argument("-r", "--show-report", action="store_true",
-                        default=False)
     parser.add_argument("config_file", type=open)
+    parser.add_argument("test_pattern", nargs="*", default=["*"])
     options = parser.parse_args(args, namespace=matrix)
 
     configLogging(options)
@@ -52,7 +51,6 @@ def setup(matrix, args=None):
 
 
 def unhandled(key):
-    print("Unhandled", key)
     if key == "ctrl c":
         raise urwid.ExitMainLoop()
 
@@ -66,12 +64,12 @@ def main(args=None):
     matrix = rules.RuleEngine(bus=bus)
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
-    mtask = loop.create_task(matrix())
 
     if options.skin == "tui":
         view = TUIView(bus)
         view_controller = urwid.MainLoop(
             view.widgets,
+            palette,
             event_loop=urwid.AsyncioEventLoop(loop=loop),
             unhandled_input=unhandled)
     else:
@@ -80,8 +78,8 @@ def main(args=None):
 
     try:
         view_controller.start()
-        loop.run_until_complete(mtask)
+        loop.create_task(matrix())
+        loop.run_forever()
     finally:
         view_controller.stop()
-        loop.stop()
         loop.close()

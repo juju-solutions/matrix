@@ -1,6 +1,6 @@
 import asyncio
 
-async def test_traffic(context, rule, action):
+async def test_traffic(context, rule, action, event=None):
     rule.log.info("Start Traffic")
     try:
         for i in range(16):

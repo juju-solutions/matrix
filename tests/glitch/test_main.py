@@ -3,11 +3,15 @@ import mock
 import unittest
 from juju.model import Model
 
-from glitch.main import glitch
+import enforce
+
+from matrix.plugins.glitch.main import glitch
+
 
 class TestGlitch(unittest.TestCase):
 
     def setUp(self):
+        enforce.config(reset=True)
         self.loop = asyncio.get_event_loop()
         self.context = mock.Mock()
         self.rule = mock.Mock()
@@ -39,7 +43,6 @@ class TestGlitch(unittest.TestCase):
 
         '''
         async def _set_model():
-            from juju.model import Model
             model = Model()
             await model.connect_current()
             self.model = model
@@ -54,10 +57,8 @@ class TestGlitch(unittest.TestCase):
         self.action.args = {}
         self.assertTrue(self.context.model)
 
-        @asyncio.coroutine
-        async def _test_glitch():
-            await glitch(self.context, self.rule, self.action)
-        self.loop.run_until_complete(_test_glitch())
+        self.loop.run_until_complete(glitch(
+            self.context, self.rule, self.action))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import unittest
 
-from glitch.plan import generate_plan
+from matrix.plugins.glitch.plan import generate_plan
+
 
 class TestPlan(unittest.TestCase):
     pass

@@ -1,175 +1,108 @@
+import functools
+import logging
 import random
-from functools import wraps
+from typing import List, Any
+
+import enforce
+from juju.model import Model
+from juju.application import Application
+from juju.unit import Unit
+
+from matrix.utils import Singleton
 
 
-class Selectors(object):
-    selector_map = {}
-
-    @classmethod
-    def decorator(cls, requires, returns=None):
-        '''
-        Add a function to our map of selectors. Each function 'requires' a
-        set of objects of some type, and 'returns' a set of objects of
-        some type. You must pass in at least the type that the
-        function 'requires'; we assume that the returned type is the
-        same if it is not specified.
-
-        If a selector 'requires' objects of type 'none', we assume
-        that the selector is a 'starter' -- that it is the first thing
-        in a list of selectors, and it will get the initial set of
-        objects.
-
-        A selector might also require 'any', in which case, it accepts
-        any type of object. If a selector requires 'any', and returns
-        objects matching whatever type of object it was passed, you
-        can specify this by passing 'same' to 'returns'.
-
-        '''
-        if returns is None:
-            returns = requires
-
-        def add_to_selectors(func):
-            cls.selector_map[func.__name__] = {
-                'func': func,
-                'requires': requires,
-                'returns': returns,
-                'starter': requires == 'none'
-            }
-            return func
-        return add_to_selectors
-
-    @classmethod
-    def func(cls, selector):
-        '''Given a selector name, return an executable function.'''
-
-        return cls.selector_map[selector]['func']
-
-    @classmethod
-    def valid_chain(cls, selectors):
-        '''Verify that a set of selectors chains together.'''
-
-        def chain(selectors, returns=None, requires=None):
-            '''
-            Given a list of selector objects, check successive pairs to verify
-            that their 'requires' and 'returns' values match.
-
-            '''
-            if returns is None and requires is None:
-                # Initialize our recursive function.
-
-                if len(selectors) < 1:
-                    # An empty chain is not valid.
-                    return False
-
-                if not selectors[0]['starter'] or selectors[0]['returns'] == 'same':
-                    # We have to start with a starter, and it doesn't
-                    # make sense for it to return 'same'
-                    return False
-
-                if len(selectors) == 1:
-                    # A chain comprising only a starter is valid.
-                    return True
-
-                return chain(
-                    selectors,
-                    returns=selectors[0]['returns'],
-                    requires=selectors[1]['requires']
-                )
-
-            if requires != 'any' and requires != returns:
-                return False
-
-            if len(selectors) <= 2:
-                # Exit.
-                return True
-
-            # Update requires and returns. If something returns
-            # 'same', then keep the type from the last pass.
-            requires = selectors[2]['requires']
-            if selectors[1]['returns'] != 'same':
-                returns = selectors[1]['returns']
-
-            return chain(selectors[1:], returns=returns, requires=requires)
-
-        return chain([cls.selector_map[s] for s in selectors])
+_marker = object()
+log = logging.getLogger("glitch")
 
 
-# Name our decorator something nicer
-selector = Selectors.decorator
+class _Selectors(dict, metaclass=Singleton):
+    def decorate(self, f):
+        wrapper = enforce.runtime_validation(f)
+        wrapper = functools.update_wrapper(wrapper, f)
+        name = f.__name__
+        self[f.__qualname__] = wrapper
+        if name in self:
+            # There is a conflict in short name
+            log.warn("selector %s already registered %s vs %s",
+                     name, f.__qualname__,
+                     self[name].__qualname__)
+        else:
+            self[name] = wrapper
+        return wrapper
 
-#
-# Define your selectors here
-#
+Selectors = _Selectors()
+selector = Selectors.decorate
 
-@selector(requires='none', returns='units')
-def units(model, nounits, applications=None):
-    '''
+
+@selector
+def units(model: Model, application: Application=None) -> List[Unit]:
+    """
     Return units that are part of the specified application(s).
 
     If no application is specified, simply return all units.
 
-    '''
-    if applications is None:
+    """
+    if application is None:
         apps = model.applications
     else:
-        apps = [model.applications[a] for a in applications]
+        apps = [application]
 
     units = []
     for a in apps:
-        units += a.units
+        units.extend(a.units)
 
     return units
 
 
-@selector(requires='units')
-def leader(model, units, value=True):
-    '''
+@selector
+def leader(model: Model, units: List[Unit], value=True) -> List[Unit]:
+    """
     Return just the units that are, or are not the leader, depending
     on whether 'value' is truthy or falsy.
 
     TODO: fix this to actually check for leadership.
 
-    '''
+    """
     return [u for u in units if u.is_leader is value]
 
 
-@selector(requires='units')
-def agent_status(model, units, string=None):
+@selector
+def agent_status(model: Model, units: List[Unit], expect):
     '''
     Return units with an agent status matching a string.
 
     '''
     # TODO: regex matching?
-    return [u for u in units if string == u.agent_status]
+    return [u for u in units if expect == u.agent_status]
 
 
-@selector(requires='units')
-def workload_status(model, units, string=None):
-    '''
+@selector
+def workload_status(model: Model, units: List[Unit], expect=None):
+    """
     Return units with a workload status matching a string.
 
-    '''
+    """
     # TODO: regex matching?
-    return [u for u in units if string == u.workload_status]
+    return [u for u in units if expect == u.workload_status]
 
 
-@selector(requires='units')
-def health(units):
-    '''
+@selector
+def health(units: List[Unit]):
+    """"
     Placeholder for eventual health check selector.
 
-    '''
-    raise Exception("Not yet implemented.")
+    """
+    raise NotImplementedError()
 
 
-@selector(requires='any', returns='same')
-def one(model, objects):
-    '''
+@selector
+def one(model: Model, objects: List[Any]) -> List[Any]:
+    """
     Return just one of a set of units.
 
     The theory is that, whenever we call this, any of the units will
-    do, so we select a unit at random, to avoid biases introduced by
+    do, so we select a unit at rmandom, to avoid biases introduced by
     just selecting the first unit in the list.
 
-    '''
+    """
     return [random.choice(objects)]

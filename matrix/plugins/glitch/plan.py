@@ -26,9 +26,9 @@ def validate_plan(plan):
         if not action.get('selectors'):
             continue
 
-        selectors = [s['selector'] for s in action['selectors']]
-        if not Selectors.valid_chain(selectors):
-            raise InvalidPlan('Action has invalid chain of selectors: {}'.format(selectors))
+        #selectors = [s['selector'] for s in action['selectors']]
+        #if not Selectors.valid_chain(selectors):
+        #    raise InvalidPlan('Action has invalid chain of selectors: {}'.format(selectors))
 
     return plan
 
@@ -62,7 +62,6 @@ def generate_plan(model, num):
     plan = {'actions': []}
 
     apps = model.applications
-    print("model.applications: {}".format(apps))
     units = []
     for a in apps.values():
         units += a.units
@@ -72,10 +71,10 @@ def generate_plan(model, num):
 
     for i in range(0, num):
         unit = random.choice(units)
-        action = random.choice([a for a in Actions.actions()])
+        action = random.choice([a for a in Actions])
         # Setup implicit selectors
         selectors = [
-            {'selector': 'units', 'applications': [unit.application]},
+            {'selector': 'units', 'application': unit.application},
             # TODO: Call is-leader via run, I think
             #{'selector': 'leader', 'application': unit.is_leader()},
             {'selector': 'one'},

@@ -3,24 +3,14 @@ import logging
 import sys
 import uuid
 from pathlib import Path
+from types import FunctionType
 
 import attr
 
+from .model import Event
 
 log = logging.getLogger("bus")
-
-
-@attr.s
-class Event:
-    """A local or remote event tied to the context timeline."""
-    time = attr.ib(init=False, convert=float)
-    created = attr.ib(init=False)
-    origin = attr.ib(init=False)   # an object or subsystem that spawned the event
-    kind = attr.ib(init=False)     # a (dotted) string indicating the kind of event
-    payload = attr.ib(default=None)  # object for payload, ex: kind based map
-
-    def __str__(self):
-        return "{} -> {} {!r}".format(self.origin, self.kind, self.payload)
+_marker = object()
 
 
 class Bus:
@@ -89,6 +79,9 @@ class Bus:
                 if until_complete is True:
                     break
             event = await self.__queue.get()
+            if event is _marker:
+                log.debug("Exiting Bus with shutdown event")
+                break
             evt_ct += 1
             # Now push the event to subscribers
             applied = False
@@ -122,8 +115,12 @@ class Bus:
                         else:
                             subscriber(event)
                     except Exception:
+                        if isinstance(subscriber, FunctionType):
+                            fname = subscriber.__qualname___
+                        else:
+                            fname = subscriber.__func__.__qualname__
                         log.warn("Exception %s for %s %d",
-                                 subscriber.__func__.__qualname__,
+                                 fname,
                                  event,
                                  evt_ct,
                                  exc_info=True,
@@ -143,7 +140,8 @@ class Bus:
 
     def shutdown(self):
         self.should_run = False
-
+        # Pushing a marker will force queue.get to return
+        self.__queue.put_nowait(_marker)
 
 default_bus = None
 

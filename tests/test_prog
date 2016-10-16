@@ -1,5 +1,18 @@
 #!/usr/bin/env matrix
 tests:
+- name: deployment
+  description: Deploy with Glitches
+  rules:
+    - do:
+        action: tests.deploy.deploy
+        version: current
+    - do:
+        action: tests.chaos.chaos
+    - do:
+        action: health
+      until: chaos.done
+      "on": state.change
+      after: deploy
 - name: traffic
   description: Traffic in the face of Chaos
   rules:
