@@ -10,3 +10,5 @@ build/
 /.cover/
 matrix.log
 glitch_plan.*.yaml
+.tox
+.cache

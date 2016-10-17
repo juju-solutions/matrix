@@ -8,6 +8,7 @@ import yaml
 
 import attr
 import petname
+import juju.model
 
 from . import model
 from .model import RUNNING, DONE
@@ -129,6 +130,7 @@ class RuleEngine:
                 loop=self.loop,
                 bus=self.bus,
                 config=self,
+                juju_model=juju.model.Model(self.loop),
                 suite=tests)
         return context
 
@@ -303,8 +305,11 @@ class RuleEngine:
         reporter = functools.partial(self.exception_handler, context)
         self.loop.set_exception_handler(reporter)
         try:
+            # TODO: Create model per test, or model per suite
+            await context.juju_model.connect_current()
             await self.run(context)
         finally:
+            await context.juju_model.disconnect()
             # Wait for any unprocessed events before exiting the loop
             await btask
             self.loop.stop()

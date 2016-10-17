@@ -4,6 +4,7 @@ tests:
   rules:
     - do:
         action: tests.deploy.deploy
+        entity: cs:bundle/wiki-simple
         version: current
     - do:
         action: tests.traffic.test_traffic

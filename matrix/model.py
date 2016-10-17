@@ -50,6 +50,7 @@ class Context:
     config = attr.ib(repr=False)
     actions = attr.ib(default=attr.Factory(dict), repr=False, init=False)
     waiters = attr.ib(default=attr.Factory(dict), repr=False, init=False)
+    juju_model = attr.ib(repr=False)
 
     def set_state(self, name, value):
         old_value = self.states.get(name)
