@@ -66,7 +66,7 @@ async def glitch(context, rule, action, event=None):
     rule.log.info("Starting glitch")
 
     output_filename = DEFAULT_PLAN_NAME.format(time.time())
-    model = context.model
+    model = context.juju_model
 
     glitch_plan = validate_plan(
         action.args.get('glitch_plan') or generate_plan(

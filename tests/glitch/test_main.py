@@ -19,7 +19,7 @@ class TestGlitch(unittest.TestCase):
         self.model = None
 
         self.set_model()
-        self.context.model = self.model
+        self.context.juju_model = self.model
         self.context.loop = self.loop
 
         self.context.bus.dispatch = self.dispatch
