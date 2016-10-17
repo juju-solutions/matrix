@@ -4,7 +4,8 @@ tests:
   description: Deploy with Glitches
   rules:
     - do:
-        action: tests.deploy.deploy
+        action: matrix.plugins.deploy.deploy
+        entity: cs:bundle/wiki-simple
         version: current
     - do:
         action: tests.chaos.chaos
@@ -17,7 +18,8 @@ tests:
   description: Traffic in the face of Chaos
   rules:
     - do:
-        action: tests.deploy.deploy
+        action: matrix.plugins.deploy.deploy
+        entity: cs:bundle/wiki-simple
         version: current
     - do:
         action: tests.traffic.test_traffic
