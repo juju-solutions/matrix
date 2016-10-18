@@ -11,7 +11,7 @@ import petname
 import juju.model
 
 from . import model
-from .model import RUNNING, DONE
+from .model import RUNNING, COMPLETE
 
 
 log = logging.getLogger("matrix")
@@ -75,7 +75,7 @@ class Test:
                     if v and "." in v and phase != "on":
                         v = v.split(".", 1)
                     else:
-                        v = [v, DONE]
+                        v = [v, COMPLETE]
                     if v:
                         conditions.append(
                                 model.Condition(
@@ -179,7 +179,7 @@ class RuleEngine:
                 if subscription:
                     self.bus.unsubscribe(subscription)
                     log.debug("Unsubscribed  'on' event %s", rule)
-                context.set_state(rule.name, DONE)
+                context.set_state(rule.name, COMPLETE)
                 break
             elif period:
                 # our example uses periodic to do health checks

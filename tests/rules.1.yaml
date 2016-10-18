@@ -8,7 +8,7 @@ tests:
         version: current
     - do:
         action: tests.traffic.test_traffic
-      until: chaos.done
+      until: chaos.complete
       after: deploy
     - do:
         action: tests.chaos.chaos
@@ -16,5 +16,5 @@ tests:
     - do:
         action: health
         periodic: 5
-      until: chaos.done
+      until: chaos.complete
       after: deploy

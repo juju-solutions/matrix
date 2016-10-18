@@ -12,7 +12,7 @@ from pathlib import Path
 from . import utils
 
 RUNNING = "running"
-DONE = "done"
+COMPLETE = "complete"
 
 log = logging.getLogger("matrix")
 
@@ -122,7 +122,7 @@ class Action:
             else:
                 # this is a plugin. resolve would have loaded it
                 result = await self.execute_plugin(context, cmd, rule)
-                context.set_state(rule.name, DONE)
+                context.set_state(rule.name, COMPLETE)
         except asyncio.CancelledError:
             result = True
             log.debug("Cancelled %s", rule.name)
@@ -207,13 +207,13 @@ class Action:
 class Condition:
     # mode: trigger keys, see below
     mode = attr.ib()
-    # statement: [<statename>, DONE|RUNNING]
+    # statement: [<statename>, COMPLETE|RUNNING]
     statement = attr.ib()
 
     TRIGGERS = {
-            "after": [DONE],
+            "after": [COMPLETE],
             "while": [RUNNING],
-            "when": [RUNNING, DONE],
+            "when": [RUNNING, COMPLETE],
             "until": lambda c, r: r != c.statement[1],
             "on": lambda c, r: True,  # bus event triggers only on conditions
                                       # don't block rule activation by

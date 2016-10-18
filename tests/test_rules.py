@@ -19,14 +19,14 @@ def test_parser():
 
 
 def test_rule_conditions():
-    context = O(states={"deploy": "done"})
+    context = O(states={"deploy": "complete"})
     s = rules.load_suite(loader("rules.1.yaml").open())
     t = s[0].rules
     assert t[0].match(context) is True
     assert t[1].match(context) is True
     assert t[2].match(context) is False
 
-    context.states['chaos'] = "done"
+    context.states['chaos'] = "complete"
     context.states['test_traffic'] = "running"
     assert t[0].match(context) is True
     assert t[1].match(context) is False
