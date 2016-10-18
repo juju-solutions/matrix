@@ -8,10 +8,10 @@ tests:
         entity: cs:bundle/wiki-simple
         version: current
     - do:
-        action: tests.chaos.chaos
+        action: matrix.plugins.glitch.glitch
     - do:
         action: health
-      until: chaos.complete
+      until: glitch.complete
       "on": state.change
       after: deploy
 - name: traffic
@@ -23,14 +23,14 @@ tests:
         version: current
     - do:
         action: tests.traffic.test_traffic
-      until: chaos.complete
+      until: glitch.complete
       after: deploy
     - do:
-        action: tests.chaos.chaos
+        action: matrix.plugins.glitch.glitch
       while: test_traffic
     - do:
         action: health
       periodic: 5
       "on": state.change
-      until: chaos.complete
+      until: glitch.complete
       after: deploy

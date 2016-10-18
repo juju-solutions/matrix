@@ -6,6 +6,9 @@ from functools import wraps
 import enforce
 from juju.model import Model
 from juju.unit import Unit
+from juju.machine import Machine
+from juju.application import Application
+from matrix.model import Rule
 
 from matrix.utils import Singleton
 
@@ -26,13 +29,15 @@ class _Actions(dict, metaclass=Singleton):
         object in that set.
 
         """
-        @enforce.runtime_validation
+
         @wraps(func)
-        async def wrapped(model, objects, **kwargs):
+        async def wrapped(rule, model, objects, **kwargs):
             for obj in objects:
-                await func(model, obj, **kwargs)
-        self[func.__name__] = wrapped
+                await enforce.runtime_validation(func(
+                    rule, model, obj, **kwargs))
+        self[func.__name__] = {'func': wrapped, 'args': func.__annotations__}
         return wrapped
+
 
 # Public singleton
 Actions = _Actions()
@@ -43,27 +48,54 @@ action = Actions.decorate
 # Define your actions here
 #
 @action
-async def reboot(model: Model, unit: Unit):
+async def reboot(rule: Rule, model: Model, unit: Unit):
     """
     Given a set of units, send a reboot command to all of them.
 
     """
+    rule.log.debug("rebooting {}".format(unit))
     await unit.run('sudo reboot')
 
 
-async def sleep(model: Model=None, obj: Any=None, seconds=2):
+#@action
+async def sleep(rule: Rule, model: Model=None, obj: Any=None, seconds=2):
     """Sleep for the given number of seconds."""
+
     await asyncio.sleep(seconds)
 
 
+@action
+async def destroy_machine(rule: Rule, model: Model, machine: Machine, force: bool=True):
+    """Remove a machine."""
+
+    await machine.destroy(force=force)
+
+
+@action
+async def remove_unit(rule: Rule, model: Model, unit: Unit):
+    """Destroy a unit."""
+
+    await unit.remove()
+
+
+@action
+async def add_unit(rule: Rule, model: Model, application: Application,
+                   count: int=1, to: str=None):
+    """Scale up an application by adding a unit (or units) to it."""
+
+    await application.add_unit(count=count, to=to)
+
+
+@action
+async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
+    """Kill the juju agent on a machine."""
+
+    await unit.run('sudo pkill jujud')
+
+
 # TODO: implement these actions:
-#    Reboot Unit
-#    Remove Unit
 #    Creating Netsplit
-#    Scaling up
-#    Scaling down
-#    Killing Juju Agents
-#    Deposing leader
 #    Sever controller connection
 #    Flipping Tables
 #    All the hippos go berserk
+#    Shut down networking daemon/kill a network interface

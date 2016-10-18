@@ -21,12 +21,9 @@ def default_resolver(model, kind, name):
     return obj
 
 
-# XXX: this most likely will need an async def
-# depending on libjuju
 def select(model, selectors, objects=None, resolver=default_resolver):
     if not selectors:
         if objects is None:
-            # TODO: custom Exception class
             raise ValueError('No valid objects specified by selectors')
         return objects
 
@@ -46,9 +43,8 @@ def select(model, selectors, objects=None, resolver=default_resolver):
                 if o is not None:
                     data[k] = o
 
-            #print(m, args, data)
-            cur = m(*args, **data)
-            args = [model, cur]
+        cur = m(*args, **data)
+        args = [model, cur]
     return cur
 
 
@@ -73,25 +69,30 @@ async def glitch(context, rule, action, event=None):
             model,
             num=action.args.get('glitch_num', 5)))
 
+    rule.log.info("Writing glitch plan to {}".format(output_filename))
+    with open(output_filename, 'w') as output_file:
+        output_file.write(yaml.dump(glitch_plan))
+
     # Execute glitch plan. We perform destructive operations here!
     for action in glitch_plan['actions']:
-        actionf = Actions[action.pop('action')]
+        actionf = Actions[action.pop('action')]['func']
         selectors = action.pop('selectors')
         # Find a set of units to act upon
         objects = select(model, selectors)
 
         # Run the specified action on those units
         rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
+
+        # TODO: better handle the case where we no longer have objects
+        # to select, due to too many of them being destroyed (most
+        # relevant for small bundles)
+        await actionf(rule, model, objects, **action)
         context.bus.dispatch(
             origin="glitch",
-            payload=functools.partial(actionf, model, objects, **action),
+            payload={'action': actionf.__name__, **action},
             kind="glitch.activate"
         )
         await asyncio.sleep(2, loop=context.loop)
-
-    rule.log.info("Writing glitch plan to {}".format(output_filename))
-    with open(output_filename, 'w') as output_file:
-        output_file.write(yaml.dump(glitch_plan))
 
     rule.log.info("Finished glitch")
     return True

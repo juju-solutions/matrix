@@ -9,6 +9,6 @@ build/
 /.coverage
 /.cover/
 matrix.log
-glitch_plan.*.yaml
+glitch_plan*yaml
 .tox
 .cache

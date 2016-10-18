@@ -6,6 +6,7 @@ from typing import List, Any
 import enforce
 from juju.model import Model
 from juju.application import Application
+from juju.machine import Machine
 from juju.unit import Unit
 
 from matrix.utils import Singleton
@@ -55,6 +56,17 @@ def units(model: Model, application: Application=None) -> List[Unit]:
 
 
 @selector
+def machines(model: Model) -> List[Machine]:
+    machines = [m for m in model.machines.values()]
+    return machines
+
+
+@selector
+def applications(model: Model) -> List[Application]:
+    return [a for a in model.applications.values()]
+
+
+#@selector
 def leader(model: Model, units: List[Unit], value=True) -> List[Unit]:
     """
     Return just the units that are, or are not the leader, depending
@@ -67,22 +79,20 @@ def leader(model: Model, units: List[Unit], value=True) -> List[Unit]:
 
 
 @selector
-def agent_status(model: Model, units: List[Unit], expect):
+def agent_status(model: Model, units: List[Unit], expect) -> List[Unit]:
     '''
     Return units with an agent status matching a string.
 
     '''
-    # TODO: regex matching?
     return [u for u in units if expect == u.agent_status]
 
 
 @selector
-def workload_status(model: Model, units: List[Unit], expect=None):
+def workload_status(model: Model, units: List[Unit], expect=None) -> List[Unit]:
     """
     Return units with a workload status matching a string.
 
     """
-    # TODO: regex matching?
     return [u for u in units if expect == u.workload_status]
 
 
@@ -103,6 +113,9 @@ def one(model: Model, objects: List[Any]) -> List[Any]:
     The theory is that, whenever we call this, any of the units will
     do, so we select a unit at rmandom, to avoid biases introduced by
     just selecting the first unit in the list.
+
+    # TODO: it looks like this can except an empty list. Need to
+    # refactor to hanle that.
 
     """
     return [random.choice(objects)]
