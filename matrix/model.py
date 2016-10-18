@@ -218,6 +218,7 @@ class Condition:
             "on": lambda c, r: True,  # bus event triggers only on conditions
                                       # don't block rule activation by
                                       # themselves
+            "periodic": lambda c, r: True,
             }
 
     def resolve(self, context):

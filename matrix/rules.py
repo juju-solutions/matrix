@@ -67,7 +67,8 @@ class Test:
                 action = model.Action(do, aspec)
 
                 conditions = []
-                for phase in ["when", "after", "until", "while", "on"]:
+                for phase in ["when", "after", "until",
+                        "while", "on", "periodic"]:
                     # create valid Condition instances
                     if phase not in d:
                         continue
@@ -166,7 +167,8 @@ class RuleEngine:
                 result = await rule.execute(context)
 
             # EXIT
-            period = rule.action.args.get("periodic")
+            period = (rule.has("periodic") and
+                      rule.select["peroidic"][0].statement)
             if rule.has("until"):
                 # we need some special handling for until conditions, these
                 # don't terminate on their own (or rather they get restarted
