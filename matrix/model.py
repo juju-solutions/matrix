@@ -63,7 +63,8 @@ class Context:
         self.states[name] = value
         # Cancel any tasks blocked on this state
         waitname = ".".join((name, value))
-        for t in self.waiters.get(waitname, []):
+        for t, owner in self.waiters.get(waitname, []):
+            log.debug("Stop %s on %s", owner.name, waitname)
             t.cancel()
         if old_value != value:
             self.bus.dispatch(kind="state.change",

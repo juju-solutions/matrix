@@ -31,5 +31,6 @@ tests:
     - do:
         action: health
       periodic: 5
+      "on": state.change
       until: chaos.complete
       after: deploy

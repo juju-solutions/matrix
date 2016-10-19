@@ -183,8 +183,10 @@ class RawView(View):
         test = e.payload
         if e.kind == "test.start":
             print("Start Test", test.name, test.description)
+            print("=" * 78)
         elif e.kind == "test.complete":
             print("Test Complete", test.name, test.result)
+            print("-" * 78)
         elif e.kind == "test.finish":
             self.show_results(e.payload)
 

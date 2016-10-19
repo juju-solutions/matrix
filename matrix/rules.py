@@ -145,6 +145,10 @@ class RuleEngine:
                 origin="matrix",
         )
         subscription = None
+        period = None
+        if rule.has("periodic"):
+            period = rule.select_one("periodic").statement[0]
+
         while True:
             # ENTER
             if not rule.match(context):
@@ -169,8 +173,6 @@ class RuleEngine:
                 result = await rule.execute(context)
 
             # EXIT
-            period = (rule.has("periodic") and
-                      rule.select_one("periodic").statement)
             if rule.has("until"):
                 # we need some special handling for until conditions, these
                 # don't terminate on their own (or rather they get restarted
@@ -178,6 +180,8 @@ class RuleEngine:
                 # if we should terminate
                 if all(not c.match(context) for c in rule.select("until")):
                     rule.complete = True
+                else:
+                    rule.complate = False
 
             if rule.complete:
                 if subscription:
@@ -230,7 +234,7 @@ class RuleEngine:
                     log.debug(
                             "Adding task to wait list on %s for rule %s",
                             u.name, rule.name)
-                    w.append(task)
+                    w.append((task, rule))
 
         # rule_runner will run each rule to completion
         # (either success or failure) and then terminate here
