@@ -11,7 +11,7 @@ import petname
 import juju.model
 
 from . import model
-from .model import RUNNING, COMPLETE
+from .model import RUNNING, COMPLETE, PAUSED
 
 
 log = logging.getLogger("matrix")
@@ -68,12 +68,14 @@ class Test:
 
                 conditions = []
                 for phase in ["when", "after", "until",
-                        "while", "on", "periodic"]:
+                              "while", "on", "periodic"]:
                     # create valid Condition instances
                     if phase not in d:
                         continue
                     v = d.get(phase)
-                    if v and "." in v and phase != "on":
+                    if v and phase == "periodic":
+                        v = [v, COMPLETE]
+                    elif v and "." in v and phase != "on":
                         v = v.split(".", 1)
                     else:
                         v = [v, COMPLETE]
@@ -158,7 +160,7 @@ class RuleEngine:
                 # conditions have been met.
                 # XXX: "on" events expect an "until" clause to handle their
                 # exit
-                subscription = await rule.execute_event(context)
+                subscription = await rule.setup_event(context)
                 log.debug("Subscribed  'on' event %s", rule)
             else:
                 # RUN
@@ -168,7 +170,7 @@ class RuleEngine:
 
             # EXIT
             period = (rule.has("periodic") and
-                      rule.select["peroidic"][0].statement)
+                      rule.select_one("periodic").statement)
             if rule.has("until"):
                 # we need some special handling for until conditions, these
                 # don't terminate on their own (or rather they get restarted
@@ -181,6 +183,8 @@ class RuleEngine:
                 if subscription:
                     self.bus.unsubscribe(subscription)
                     log.debug("Unsubscribed  'on' event %s", rule)
+                # The rule is marked as complete
+                # automatically set the state for things to react to.
                 context.set_state(rule.name, COMPLETE)
                 break
             elif period:
@@ -188,7 +192,9 @@ class RuleEngine:
                 # in reality we will want rule_runner to block on
                 # a lock/condition such that we don't progress testing
                 # until we've assessed system health
+                context.set_state(rule.name, PAUSED)
                 await asyncio.sleep(period, loop=self.loop)
+                context.set_state(rule.name, RUNNING)
 
         self.bus.dispatch(
                 kind="rule.done",

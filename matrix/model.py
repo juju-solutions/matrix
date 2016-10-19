@@ -12,6 +12,7 @@ from pathlib import Path
 from . import utils
 
 RUNNING = "running"
+PAUSED = "paused"
 COMPLETE = "complete"
 
 log = logging.getLogger("matrix")
@@ -46,9 +47,14 @@ class Context:
     bus = attr.ib(repr=False)
     suite = attr.ib()
     timeline = attr.ib(init=False, default=attr.Factory(Timeline))
+    # Task -> State + (any custom states)
     states = attr.ib(init=False, default=attr.Factory(dict))
+    # Top level config
     config = attr.ib(repr=False)
+    # Resolve rule.action handlers
     actions = attr.ib(default=attr.Factory(dict), repr=False, init=False)
+    # Task cancellation callbacks
+    # XXX: use an event for this?
     waiters = attr.ib(default=attr.Factory(dict), repr=False, init=False)
     juju_model = attr.ib(repr=False)
 
@@ -122,7 +128,6 @@ class Action:
             else:
                 # this is a plugin. resolve would have loaded it
                 result = await self.execute_plugin(context, cmd, rule)
-                context.set_state(rule.name, COMPLETE)
         except asyncio.CancelledError:
             result = True
             log.debug("Cancelled %s", rule.name)
@@ -133,7 +138,7 @@ class Action:
 
         return result
 
-    async def execute_event(self, context, rule):
+    async def setup_event(self, context, rule):
         # create and manage an event subscriber
         # for the condition in an "on" clause
         # when the "on" condition's statement is matched
@@ -151,10 +156,11 @@ class Action:
             return await callback(context, cmd, rule, event)
 
         # XXX: handle in loop?
-        on_cond = rule.select("on")[0]
+        on_cond = rule.select_one("on")
 
         def is_cond(e):
-            return fnmatch.fnmatch(e.kind, on_cond.statement[0])
+            return (fnmatch.fnmatch(e.kind, on_cond.statement[0]) and
+                    rule.state(context) == RUNNING)
         return context.bus.subscribe(event_wrapper, is_cond)
 
     async def execute_plugin(self, context, cmd, rule, event=None):
@@ -212,8 +218,8 @@ class Condition:
 
     TRIGGERS = {
             "after": [COMPLETE],
-            "while": [RUNNING],
-            "when": [RUNNING, COMPLETE],
+            "while": [RUNNING, PAUSED],
+            "when": [RUNNING, COMPLETE, PAUSED],
             "until": lambda c, r: r != c.statement[1],
             "on": lambda c, r: True,  # bus event triggers only on conditions
                                       # don't block rule activation by
@@ -252,6 +258,9 @@ class Rule:
     def log(self):
         return logging.getLogger(self.name)
 
+    def state(self, context):
+        return context.states.get(self.name)
+
     def match(self, context):
         if not self.conditions:
             return True
@@ -266,8 +275,14 @@ class Rule:
     def select(self, clause):
         return [c for c in self.conditions if c.mode == clause]
 
-    async def execute_event(self,  context):
-        result = await self.action.execute_event(context, self)
+    def select_one(self, clause):
+        r = self.select(clause)
+        if not r:
+            return None
+        return r[0]
+
+    async def setup_event(self,  context):
+        result = await self.action.setup_event(context, self)
         return result
 
     async def execute(self, context):
