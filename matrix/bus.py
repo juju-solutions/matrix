@@ -104,7 +104,10 @@ class Bus:
                     try:
                         name = subscriber.__func__.__qualname__
                     except AttributeError:
-                        name = str(subscriber)
+                        try:
+                            name = subscriber.__name__
+                        except AttributeError:
+                            name = str(subscriber)
 
                     log.debug("#%d %s -> %s", evt_ct, event, name)
                     applied = True
