@@ -10,7 +10,7 @@ from .plan import generate_plan, validate_plan
 
 
 log = logging.getLogger("glitch")
-DEFAULT_PLAN_NAME = "glitch_plan.{}.yaml"
+DEFAULT_PLAN_NAME = "glitch_plan.yaml"
 
 
 def default_resolver(model, kind, name):
@@ -65,7 +65,7 @@ async def glitch(context, rule, action, event=None):
     """
     rule.log.info("Starting glitch")
 
-    output_filename = DEFAULT_PLAN_NAME.format(time.time())
+    output_filename = DEFAULT_PLAN_NAME
     model = context.juju_model
 
     glitch_plan = validate_plan(
