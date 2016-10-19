@@ -151,21 +151,23 @@ class RuleEngine:
 
         while True:
             # ENTER
-            if not rule.match(context):
-                log.debug("rule '%s' blocked on %s. context: %s ",
-                          rule.name, rule.pending(context), context.states)
+            if not rule.match(context) or subscription is not None:
+                if not subscription:
+                    log.debug("rule '%s' blocked on %s. context: %s ",
+                              rule.name, rule.pending(context), context.states)
                 await asyncio.sleep(self.interval, loop=self.loop)
 
             context.set_state(rule.name, RUNNING)
-            if rule.has("on") and subscription is None:
-                # subscribe the rules action
-                # The execution is managed by the subscription
-                # however, we check here if the termination
-                # conditions have been met.
-                # XXX: "on" events expect an "until" clause to handle their
-                # exit
-                subscription = await rule.setup_event(context)
-                log.debug("Subscribed  'on' event %s", rule)
+            if rule.has("on"):
+                if subscription is None:
+                    # subscribe the rules action
+                    # The execution is managed by the subscription
+                    # however, we check here if the termination
+                    # conditions have been met.
+                    # XXX: "on" events expect an "until" clause to handle their
+                    # exit
+                    subscription = await rule.setup_event(context)
+                    log.debug("Subscribed  'on' event %s", rule)
             else:
                 # RUN
                 # The rules conditions were met
