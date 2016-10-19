@@ -6,7 +6,10 @@ import urwid
 log = logging.getLogger("view")
 
 palette = [
+        ("default", "white", "black"),
         ("header", "white", "black", "standout"),
+        ("pass", "dark green", "black"),
+        ("fail", "dark red", "black"),
         ("focused", "black", "dark cyan", "standout")
         ]
 
@@ -107,12 +110,11 @@ class TUIView(View):
             self.run_ct += 1
             self.results.append(e.payload.result)
 
-        symbol = {True: "✓", False: "✕"}
-        self.progress.set_text("{}/{} {} {}".format(
-            self.run_ct,
-            self.run_total,
-            " ".join([symbol[r] for r in self.results]),
-            name))
+        symbol = {True: ("pass", "✓"), False: ("fail", "✕")}
+        output = ["{}/{} ".format(self.run_ct, self.run_total)]
+        output.extend([symbol[r] for r in self.results])
+        output.append(" {}".format(name))
+        self.progress.set_text(output)
 
         if e.kind == "test.finish":
             self.show_timeline(e)
