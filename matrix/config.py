@@ -46,6 +46,18 @@ LoggingConfig = {
             "handlers": ["file"],
             "level": "DEBUG",
             "propagate": False
-            }
+            },
+
+        "requests.packages.urllib3": {
+            "handlers": ["default"],
+            "level": "WARN",
+            "propagate": False
+            },
+
+        "websocket": {
+            "handlers": ["default"],
+            "level": "WARN",
+            "propagate": False
+            },
    }
 }
