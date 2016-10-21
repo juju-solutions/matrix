@@ -61,17 +61,20 @@ async def glitch(context, rule, action, event=None):
     """
     rule.log.info("Starting glitch")
 
-    output_filename = DEFAULT_PLAN_NAME
     model = context.juju_model
+    config = context.config
 
-    glitch_plan = validate_plan(
-        action.args.get('glitch_plan') or generate_plan(
-            model,
-            num=action.args.get('glitch_num', 5)))
+    if config.glitch_plan:
+        with open(config.glitch_plan, 'r') as f:
+            glitch_plan = validate_plan(yaml.load(f))
+        rule.log.info("loaded glitch plan from {}".format(config.glitch_plan))
+    else:
+        glitch_plan = generate_plan(model, num=int(config.glitch_num))
+        glitch_plan = validate_plan(glitch_plan)
 
-    rule.log.info("Writing glitch plan to {}".format(output_filename))
-    with open(output_filename, 'w') as output_file:
-        output_file.write(yaml.dump(glitch_plan))
+        rule.log.info("Writing glitch plan to {}".format(config.glitch_output))
+        with open(config.glitch_output, 'w') as output_file:
+            output_file.write(yaml.dump(glitch_plan))
 
     # Execute glitch plan. We perform destructive operations here!
     for action in glitch_plan['actions']:

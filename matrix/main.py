@@ -44,6 +44,9 @@ def setup(matrix, args=None):
                         type=Path)
     parser.add_argument("config_file", type=open)
     parser.add_argument("test_pattern", nargs="*", default=["*"])
+    parser.add_argument("-g", "--glitch_plan")
+    parser.add_argument("-n", "--glitch_num", default=5)
+    parser.add_argument("-o", "--glitch_output", default="glitch_plan.yaml")
     options = parser.parse_args(args, namespace=matrix)
 
     configLogging(options)
