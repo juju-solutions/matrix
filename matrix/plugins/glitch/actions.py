@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 from typing import Any
 from functools import wraps
@@ -35,7 +36,11 @@ class _Actions(dict, metaclass=Singleton):
             for obj in objects:
                 await enforce.runtime_validation(func(
                     rule, model, obj, **kwargs))
-        self[func.__name__] = {'func': wrapped, 'args': func.__annotations__}
+        signature = inspect.signature(func)
+        self[func.__name__] = {
+            'func': wrapped,
+            'type': [p for p in signature.parameters.keys()][2]
+        }
         return wrapped
 
 

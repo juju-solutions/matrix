@@ -102,19 +102,11 @@ def generate_plan(model, num):
 
     for i in range(0, num):
         action = random.choice([a for a in Actions])
+        obj_type = Actions[action]['type']
 
-        sig = [arg for arg in Actions[action]['args'] if arg in _MODEL_OPS.keys()]
-        if len(sig) < 1:
-            raise InvalidPlan("Empty signature for action {}".format(action))
-        if len(sig) > 1:
-            raise InvalidPlan(
-                "Found more than one value to use as "
-                "signature for action {} ({}).".format(action, sig))
-        sig = sig[0]
-
-        objects = _fetch_objects(sig, model)
+        objects = _fetch_objects(obj_type, model)
         obj = random.choice(objects)
-        selectors = _implicit_selectors(sig, obj)
+        selectors = _implicit_selectors(obj_type, obj)
 
         plan['actions'].append({'action': action, 'selectors': selectors})
 
