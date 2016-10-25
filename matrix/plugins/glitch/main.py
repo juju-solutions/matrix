@@ -44,6 +44,8 @@ def select(model, selectors, objects=None, resolver=default_resolver):
                     data[k] = o
 
         cur = m(*args, **data)
+        if len(cur) < 1:  # If we get an empty list ...
+            return cur  # ... return it, and skip the rest.
         args = [model, cur]
     return cur
 
@@ -82,6 +84,12 @@ async def glitch(context, rule, action, event=None):
         selectors = action.pop('selectors')
         # Find a set of units to act upon
         objects = select(model, selectors)
+        if not objects:
+            # If we get an empty set of objects back, just skip this action.
+            rule.log.error(
+                "Could not run {}. No objects for selectors {}".format(
+                    actionf.__name__, selectors))
+            continue
 
         # Run the specified action on those units
         rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
