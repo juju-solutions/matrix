@@ -15,10 +15,16 @@ async def health(context, rule, action, event=None):
         # this shouldn't happen, because the health rule has
         # an "after: deploy", but that doesn't seem to be honored
         return
-    stable_period = timedelta(seconds=30)
+    stable_period = timedelta(seconds=action.args.get('stability_period', 30))
+    errored_apps = []
+    busy_apps = []
     errored_units = []
     busy_units = []
     for app in context.apps:
+        if app.status == 'error':
+            errored_apps.append(app)
+        elif app.status not in ('active', 'unknown'):
+            busy_apps.append(app)
         for unit in app.units:
             now = datetime.utcnow()
             agent_status_duration = now - unit.agent_status_since
@@ -34,9 +40,10 @@ async def health(context, rule, action, event=None):
                   unit.workload_status not in ('active', 'unknown')):
                 busy_units.append(unit)
 
-    if errored_units:
+    if errored_apps or errored_units:
         result = 'unhealthy'
-    elif busy_units:
+    elif (busy_apps or busy_units) and \
+            context.states.get('deployment') != 'healthy':
         result = 'busy'
     else:
         result = 'healthy'

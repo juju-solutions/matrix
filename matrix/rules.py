@@ -147,7 +147,7 @@ class RuleEngine:
         subscription = None
         period = None
         if rule.has("periodic"):
-            period = int(rule.select_one("periodic").statement[0])
+            period = rule.select_one("periodic").statement[0]
 
         while True:
             # ENTER
