@@ -183,7 +183,7 @@ class RuleEngine:
                 if all(not c.match(context) for c in rule.select("until")):
                     rule.complete = True
                 else:
-                    rule.complate = False
+                    rule.complete = False
 
             if rule.complete:
                 if subscription:
@@ -203,7 +203,7 @@ class RuleEngine:
                 context.set_state(rule.name, RUNNING)
 
         self.bus.dispatch(
-                kind="rule.done",
+                kind="rule.complete",
                 payload=rule.asdict(result),
                 origin=rule.name
                 )
@@ -313,6 +313,15 @@ class RuleEngine:
             return
         self._reported = True
 
+    async def model_change(self, delta, old_obj, new_obj, juju_model):
+        self.bus.dispatch(
+            kind="model.change",
+            payload={
+                'delta': delta,
+                'old_obj': old_obj,
+                'new_obj': new_obj,
+            })
+
     async def __call__(self):
         btask = self.loop.create_task(self.bus.notify(False))
         context = self.load_suite(self.config_file)
@@ -321,6 +330,7 @@ class RuleEngine:
         try:
             # TODO: Create model per test, or model per suite
             await context.juju_model.connect_current()
+            context.juju_model.add_observer(self.model_change)
             await self.run(context)
         finally:
             await context.juju_model.disconnect()

@@ -1,36 +1,37 @@
 #!/usr/bin/env matrix
-tests:
-- name: deployment
-  description: Deploy with Glitches
-  rules:
-    - do:
-        action: matrix.plugins.deploy.deploy
-        entity: cs:bundle/wiki-simple
-        version: current
-    - do:
-        action: matrix.plugins.glitch.glitch
-    - do:
-        action: health
-      until: glitch.complete
-      "on": state.change
-      after: deploy
-- name: traffic
-  description: Traffic in the face of Chaos
-  rules:
-    - do:
-        action: matrix.plugins.deploy.deploy
-        entity: cs:bundle/wiki-simple
-        version: current
-    - do:
-        action: tests.traffic.test_traffic
-      until: glitch.complete
-      after: deploy
-    - do:
-        action: matrix.plugins.glitch.glitch
-      while: test_traffic
-    - do:
-        action: health
-      periodic: 5
-      "on": state.change
-      until: glitch.complete
-      after: deploy
+"tests":
+- "name": deployment
+  "description": Deploy with Glitches
+  "rules":
+    - "do":
+        "action": matrix.plugins.actions.deploy
+        "entity": "cs:bundle/wiki-simple"
+        "version": current
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "action": matrix.plugins.actions.health
+      "until": glitch.complete
+    - "after": deployment.healthy
+      "do":
+        "action": matrix.plugins.actions.glitch
+#- "name": traffic
+#  "description": Traffic in the face of Chaos
+#  "rules":
+#    - "do":
+#        "action": matrix.plugins.actions.deploy
+#        "entity": "cs:bundle/wiki-simple"
+#        "version": current
+#    - "after": deploy
+#      "on": model.change
+#      "periodic": 5
+#      "do":
+#        "action": matrix.plugins.actions.health
+#      "until": glitch.complete
+#    - "after": health.healthy
+#      "do":
+#        "action": matrix.plugins.actions.glitch
+#    - "after": health.healthy
+#      "do":
+#        "action": tests.traffic.test_traffic
+#      "until": glitch.complete
