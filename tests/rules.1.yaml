@@ -15,6 +15,6 @@ tests:
       while: test_traffic
     - do:
         action: health
-        periodic: 5
+      periodic: 5
       until: chaos.complete
       after: deploy

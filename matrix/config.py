@@ -54,6 +54,12 @@ LoggingConfig = {
             "propagate": False
             },
 
+        "websocket": {
+            "handlers": ["default"],
+            "level": "WARN",
+            "propagate": False
+            },
+
        "websockets": {
             "handlers": ["default"],
             "level": "WARN",

@@ -1,6 +1,7 @@
 import collections
 import logging
 
+import attr
 import urwid
 
 log = logging.getLogger("view")
@@ -53,8 +54,9 @@ class SelectableText(urwid.Edit):
         return False
 
 
-def render_row(row):
-    return "{:18} -> {}".format(row["name"], row.get("state", "pending"))
+def render_task_row(row):
+    rule = row['rule']
+    return "{:18} -> {}".format(rule.name, row.get("state", "pending"))
 
 
 class TUIView(View):
@@ -84,7 +86,7 @@ class TUIView(View):
             return e.kind.startswith("rule.")
 
         def is_state(e):
-            return e.kind.startswith("state.")
+            return e.kind == "state.change"
 
         def is_test(e):
             return e.kind.startswith("test.")
@@ -154,15 +156,14 @@ class TUIView(View):
 
     def show_rule_state(self, event):
         t = event.payload
-        self.task_view.setdefault(t['name'], {}).update(t)
-        self.tasks.set_text(self.task_view.render(render_row))
+        rule = t['rule']
+        self.task_view.setdefault(rule.name, {}).update(t)
+        self.tasks.set_text(self.task_view.render(render_task_row))
 
     def show_state(self, event):
-        if event.kind != "state.change":
-            return
         sc = event.payload
         self.task_view[sc['name']]['state'] = sc['new_value']
-        self.tasks.set_text(self.task_view.render(render_row))
+        self.tasks.set_text(self.task_view.render(render_task_row))
 
 
 class RawView(View):

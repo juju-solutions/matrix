@@ -32,7 +32,6 @@ class Test:
     rules = attr.ib(default=attr.Factory(list))
     result = attr.ib(default=None, init=False)
 
-    @property
     def complete(self, context):
         return all([r.complete(context) for r in self])
 
@@ -73,13 +72,9 @@ class Test:
                     if phase not in d:
                         continue
                     v = d.get(phase)
-                    if v and phase == "periodic":
-                        v = [v, COMPLETE]
-                    elif v and "." in v and phase != "on":
-                        v = v.split(".", 1)
-                    else:
-                        v = [v, COMPLETE]
                     if v:
+                        if isinstance(v, str):
+                            v = v.rsplit(".", 1)
                         conditions.append(
                                 model.Condition(
                                     mode=phase,
@@ -141,13 +136,13 @@ class RuleEngine:
         result = None
         self.bus.dispatch(
                 kind="rule.create",
-                payload=rule.asdict(),
+                payload=dict(rule=rule, result=None),
                 origin="matrix",
         )
         subscription = None
         period = None
         if rule.has("periodic"):
-            period = rule.select_one("periodic").statement[0]
+            period = rule.select_one("periodic").statement
 
         while True:
             # ENTER
@@ -157,7 +152,7 @@ class RuleEngine:
                               rule.name, rule.pending(context), context.states)
                 await asyncio.sleep(self.interval, loop=self.loop)
 
-            context.set_state(rule.name, RUNNING)
+            rule.lifecycle(context, RUNNING)
             if rule.has("on"):
                 if subscription is None:
                     # subscribe the rules action
@@ -176,35 +171,30 @@ class RuleEngine:
 
             # EXIT
             if rule.has("until"):
-                # we need some special handling for until conditions, these
-                # don't terminate on their own (or rather they get restarted
-                # until their condition is satisfied) so we must check here
-                # if we should terminate
-                if all(not c.match(context) for c in rule.select("until")):
-                    rule.complete = True
-                else:
-                    rule.complate = False
+                # until conditions enter when they haven't been met, so to
+                # exit we ask if all the until conditions for a rule
+                # have been met (hence the not)
+                if all(not c.match(context, rule) for c in rule.select("until")):
+                    rule.complete(context, True)
 
-            if rule.complete:
+            if rule.complete(context):
                 if subscription:
                     self.bus.unsubscribe(subscription)
+                    result = True
                     log.debug("Unsubscribed  'on' event %s", rule)
-                # The rule is marked as complete
-                # automatically set the state for things to react to.
-                context.set_state(rule.name, COMPLETE)
                 break
             elif period:
                 # our example uses periodic to do health checks
                 # in reality we will want rule_runner to block on
                 # a lock/condition such that we don't progress testing
                 # until we've assessed system health
-                context.set_state(rule.name, PAUSED)
+                rule.lifecycle(context, PAUSED)
                 await asyncio.sleep(period, loop=self.loop)
-                context.set_state(rule.name, RUNNING)
+                rule.lifecycle(context, RUNNING)
 
         self.bus.dispatch(
                 kind="rule.done",
-                payload=rule.asdict(result),
+                payload=dict(rule=rule, result=result),
                 origin=rule.name
                 )
         return result
