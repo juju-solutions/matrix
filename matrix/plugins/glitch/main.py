@@ -21,12 +21,9 @@ def default_resolver(model, kind, name):
     return obj
 
 
-# XXX: this most likely will need an async def
-# depending on libjuju
 def select(model, selectors, objects=None, resolver=default_resolver):
     if not selectors:
         if objects is None:
-            # TODO: custom Exception class
             raise ValueError('No valid objects specified by selectors')
         return objects
 
@@ -46,9 +43,10 @@ def select(model, selectors, objects=None, resolver=default_resolver):
                 if o is not None:
                     data[k] = o
 
-            #print(m, args, data)
-            cur = m(*args, **data)
-            args = [model, cur]
+        cur = m(*args, **data)
+        if len(cur) < 1:  # If we get an empty list ...
+            return cur  # ... return it, and skip the rest.
+        args = [model, cur]
     return cur
 
 
@@ -65,33 +63,47 @@ async def glitch(context, rule, action, event=None):
     """
     rule.log.info("Starting glitch")
 
-    output_filename = DEFAULT_PLAN_NAME
     model = context.juju_model
+    config = context.config
 
-    glitch_plan = validate_plan(
-        action.args.get('glitch_plan') or generate_plan(
-            model,
-            num=action.args.get('glitch_num', 5)))
+    if config.glitch_plan:
+        with open(config.glitch_plan, 'r') as f:
+            glitch_plan = validate_plan(yaml.load(f))
+        rule.log.info("loaded glitch plan from {}".format(config.glitch_plan))
+    else:
+        glitch_plan = generate_plan(model, num=int(config.glitch_num))
+        glitch_plan = validate_plan(glitch_plan)
+
+        rule.log.info("Writing glitch plan to {}".format(config.glitch_output))
+        with open(config.glitch_output, 'w') as output_file:
+            output_file.write(yaml.dump(glitch_plan))
 
     # Execute glitch plan. We perform destructive operations here!
     for action in glitch_plan['actions']:
-        actionf = Actions[action.pop('action')]
+        actionf = Actions[action.pop('action')]['func']
         selectors = action.pop('selectors')
         # Find a set of units to act upon
         objects = select(model, selectors)
+        if not objects:
+            # If we get an empty set of objects back, just skip this action.
+            rule.log.error(
+                "Could not run {}. No objects for selectors {}".format(
+                    actionf.__name__, selectors))
+            continue
 
         # Run the specified action on those units
         rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
+
+        # TODO: better handle the case where we no longer have objects
+        # to select, due to too many of them being destroyed (most
+        # relevant for small bundles)
+        await actionf(rule, model, objects, **action)
         context.bus.dispatch(
             origin="glitch",
-            payload=functools.partial(actionf, model, objects, **action),
+            payload={'action': actionf.__name__, **action},
             kind="glitch.activate"
         )
         await asyncio.sleep(2, loop=context.loop)
-
-    rule.log.info("Writing glitch plan to {}".format(output_filename))
-    with open(output_filename, 'w') as output_file:
-        output_file.write(yaml.dump(glitch_plan))
 
     rule.log.info("Finished glitch")
     return True

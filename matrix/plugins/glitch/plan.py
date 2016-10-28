@@ -10,6 +10,49 @@ class InvalidModel(Exception):
     pass
 
 
+_MODEL_OPS = {
+    'machine': {
+        'fetch': lambda model: [m for m in model.machines.values()],
+        'selectors': lambda m: [
+            {'selector': 'machines'}, {'selector': 'one'}],
+    },
+    'unit': {
+        'fetch': lambda model: [u for u in model.units.values()],
+        'selectors': lambda u: [
+            {'selector': 'units', 'application': u.application},
+            # TODO: handle leadership
+            {'selector': 'one'}
+        ]
+    },
+    'application': {
+        'fetch': lambda model: [a for a in model.applications.values()],
+        'selectors': lambda a: [
+            {'selector': 'applications'},
+            {'selector': 'one'}
+        ]
+    }
+}
+
+
+def _fetch_objects(object_type, model):
+    try:
+        func = _MODEL_OPS[object_type]['fetch']
+    except KeyError:
+        raise InvalidPlan("Could not fetch objects of {}".format(object_type))
+    objects = func(model)
+    if not objects:
+        raise InvalidModel("No objects to test in the current model")
+    return objects
+
+
+def _implicit_selectors(object_type, obj):
+    try:
+        func = _MODEL_OPS[object_type]['selectors']
+    except KeyError:
+        raise InvalidPlan("Could not get implicit selectors for {}".format(object_type))
+    return func(obj)
+
+
 def validate_plan(plan):
     '''
     Validate our plan. Raise an InvalidPlan exception with a helpful
@@ -25,10 +68,6 @@ def validate_plan(plan):
 
         if not action.get('selectors'):
             continue
-
-        #selectors = [s['selector'] for s in action['selectors']]
-        #if not Selectors.valid_chain(selectors):
-        #    raise InvalidPlan('Action has invalid chain of selectors: {}'.format(selectors))
 
     return plan
 
@@ -61,31 +100,14 @@ def generate_plan(model, num):
     '''
     plan = {'actions': []}
 
-    apps = model.applications
-    units = []
-    for a in apps.values():
-        units += a.units
-
-    if not units:
-        raise InvalidModel('No units to test in the current model.')
-
     for i in range(0, num):
-        unit = random.choice(units)
         action = random.choice([a for a in Actions])
-        # Setup implicit selectors
-        selectors = [
-            {'selector': 'units', 'application': unit.application},
-            # TODO: Call is-leader via run, I think
-            #{'selector': 'leader', 'application': unit.is_leader()},
-            {'selector': 'one'},
-        ]
+        obj_type = Actions[action]['type']
 
-        plan['actions'].append(
-            {
-                'action': action,
-                # TODO: get some good default args for each action
-                'selectors': selectors
-            }
+        objects = _fetch_objects(obj_type, model)
+        obj = random.choice(objects)
+        selectors = _implicit_selectors(obj_type, obj)
 
-        )
+        plan['actions'].append({'action': action, 'selectors': selectors})
+
     return plan
