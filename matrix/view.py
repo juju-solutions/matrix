@@ -16,9 +16,10 @@ palette = [
 
 
 class View:
-    def __init__(self, bus):
+    def __init__(self, bus, screen=None):
         self.bus = bus
-        self.build_ui()
+        self.screen = screen
+        self.widgets = self.build_ui()
         self.subscribe()
 
     def build_ui(self):
@@ -28,13 +29,36 @@ class View:
         pass
 
 
-class BufferedList(collections.deque):
-    def __init__(self, limit):
-        seed = ["\n"] * limit
-        super(BufferedList, self).__init__(seed, limit)
+class TextPane(urwid.ListBox):
+    def __init__(self, walker=None, body=None, limit=None):
+        if not body:
+            body = []
+        if limit:
+            body = collections.deque(body, limit)
+        if not walker:
+            walker = urwid.SimpleListWalker(body)
+        self.walker = walker
+        super(TextPane, self).__init__(self.walker)
 
-    def render(self):
-        return "\n".join(self)
+    def append(self, message):
+        self.walker.append(SelectableText(message))
+        self.set_focus(len(self.walker) - 1)
+
+    def update(self, index, widget):
+        self.body[index] = ("fixed", 1, widget)
+
+    def update_all(self, rows, callback=None, iterator=None):
+        if iterator is None:
+            iterator = iter
+        if callback:
+            rows = [callback(row) for row in iterator(rows)]
+        self.body.clear()
+        self.body.extend(rows)
+        self.set_focus(len(self.walker) - 1)
+
+
+def render_row(row):
+    return "{:18} -> {}".format(row["name"], row.get("state", "pending"))
 
 
 class BufferedDict(collections.OrderedDict):
@@ -56,27 +80,28 @@ class SelectableText(urwid.Edit):
 
 def render_task_row(row):
     rule = row['rule']
-    return "{:18} -> {}".format(rule.name, row.get("state", "pending"))
+    return urwid.SelectableText("{:18} -> {}".format(rule.name, row.get("state", "pending")))
 
 
 class TUIView(View):
     def build_ui(self):
-        self.tasks = urwid.Text("")
-        self.task_view = BufferedDict(6)
-        self.status = urwid.Text("")
-        self.status_view = BufferedList(10)
+        self.tasks = {}
+        self.task_view = TextPane()
+        self.status = TextPane(limit=100)
         self.run_ct = 0
         self.results = []
 
-        self.pile = urwid.Pile([
-                    urwid.Text(("header", "Matrix")),
-                    urwid.Divider(),
-                    urwid.LineBox(self.tasks),
-                    urwid.LineBox(self.status),
-                    ])
-        self.widgets = urwid.Filler(
-                self.pile,
-                'top', min_height=5)
+        self.pile = body = urwid.Pile([
+            #urwid.Text(("header", "Matrix")),
+            #urwid.Divider(),
+
+            urwid.LineBox(self.tasks),
+            #urwid.LineBox(self.status)
+                ])
+        self.pile = body
+        self.frame = urwid.Frame(body=body)
+
+        return self.frame
 
     def subscribe(self):
         def is_log(e):
@@ -148,8 +173,7 @@ class TUIView(View):
         self.pile.focus_position = len(self.pile.contents) - 1
 
     def add_log(self, msg):
-        self.status_view.append(msg)
-        self.status.set_text(self.status_view.render())
+        self.status.append(msg)
 
     def show_log(self, event):
         self.add_log(event.payload.output)
@@ -158,12 +182,14 @@ class TUIView(View):
         t = event.payload
         rule = t['rule']
         self.task_view.setdefault(rule.name, {}).update(t)
-        self.tasks.set_text(self.task_view.render(render_task_row))
+        rows = self.task_view.render(render_task_row)
+        self.tasks.update_all(rows)
 
     def show_state(self, event):
         sc = event.payload
         self.task_view[sc['name']]['state'] = sc['new_value']
-        self.tasks.set_text(self.task_view.render(render_task_row))
+        rows = self.task_view.render(render_task_row)
+        self.tasks.update_all(rows)
 
 
 class RawView(View):
