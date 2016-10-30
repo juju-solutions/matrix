@@ -11,8 +11,111 @@ palette = [
         ("header", "white", "black", "standout"),
         ("pass", "dark green", "black"),
         ("fail", "dark red", "black"),
-        ("focused", "black", "dark cyan", "standout")
+        ("focused", "black", "dark cyan", "standout"),
+        ("DEBUG", "default"),
+        ("INFO", "dark green", "black"),
+        ("WARN", "dark cyan", "black"),
+        ("CRITICAL", "fail"),
         ]
+
+
+def identity(o):
+    return o
+
+
+class SimpleDictValueWalker(urwid.ListWalker):
+    def __init__(self, body=None, factory=dict,
+                 key_func=identity,
+                 widget_func=urwid.Text):
+        if body is None:
+            body = factory()
+        self.body = body
+        self.key_func = key_func
+        self.widget_func = widget_func
+        self.focus = 0
+
+    def __getitem__(self, pos):
+        if isinstance(pos, int):
+            keys = list(self.body.keys())
+            k = keys[pos]
+            o = self.body[k]
+        else:
+            o = self.body[pos]
+        return self.widget_func(o)
+
+    def update(self, entity, focus=True):
+        key = self.key_func(entity)
+        self.body[key] = entity
+        if focus:
+            pos = self._get_pos(key)
+            self.set_focus(pos)
+        else:
+            self._modified()
+
+    def _get_pos(self, pos, offset=None):
+        keys = list(self.body.keys())
+        if not isinstance(pos, int):
+            obj = self.body[pos]
+            key = self.key_func(obj)
+            for i, k in enumerate(keys):
+                if k == key:
+                    pos = i
+                    break
+
+        if offset:
+            pos = pos + offset
+            if pos < 0 or pos > len(keys):
+                raise IndexError("Unable to offset position")
+        return pos
+
+    def next_position(self, pos):
+        return self._get_pos(pos, 1)
+
+    def prev_position(self, pos):
+        return self._get_pos(pos, -1)
+
+    def set_focus(self, position):
+        self.focus = self._get_pos(position)
+        self._modified()
+
+
+class SimpleListRenderWalker(urwid.ListWalker):
+    def __init__(self, body, widget_func=urwid.Text):
+        self.body = body
+        self.widget_func = widget_func
+        self.focus = 0
+
+    def __getitem__(self, pos):
+        o = self.body[pos]
+        return self.widget_func(o)
+
+    def update(self, entity, pos=-1, focus=True):
+        if pos == -1:
+            self.body.append(entity)
+            pos = len(self.body) - 1
+        else:
+            self.body[pos] = entity
+        if focus:
+            self.set_focus(pos)
+        else:
+            self._modified()
+
+    def _pos(self, pos, offset=None):
+        if offset:
+            pos = pos + offset
+            if pos < 0 or pos > len(self.body):
+                raise IndexError("Unable to offset position")
+        return pos
+
+    def next_position(self, pos):
+        return self._pos(pos, 1)
+
+    def prev_position(self, pos):
+        return self._pos(pos, -1)
+
+    def set_focus(self, position):
+        self.focus = self._pos(position)
+        self._modified()
 
 
 class View:
@@ -29,129 +132,110 @@ class View:
         pass
 
 
-class TextPane(urwid.ListBox):
-    def __init__(self, walker=None, body=None, limit=None):
-        if not body:
-            body = []
-        if limit:
-            body = collections.deque(body, limit)
-        if not walker:
-            walker = urwid.SimpleListWalker(body)
-        self.walker = walker
-        super(TextPane, self).__init__(self.walker)
-
-    def append(self, message):
-        self.walker.append(SelectableText(message))
-        self.set_focus(len(self.walker) - 1)
-
-    def update(self, index, widget):
-        self.body[index] = ("fixed", 1, widget)
-
-    def update_all(self, rows, callback=None, iterator=None):
-        if iterator is None:
-            iterator = iter
-        if callback:
-            rows = [callback(row) for row in iterator(rows)]
-        self.body.clear()
-        self.body.extend(rows)
-        self.set_focus(len(self.walker) - 1)
-
-
-def render_row(row):
-    return "{:18} -> {}".format(row["name"], row.get("state", "pending"))
-
-
-class BufferedDict(collections.OrderedDict):
-    def __init__(self, limit):
-        self.limit = limit
-        super(BufferedDict, self).__init__()
-
-    def render(self, row_func):
-        output = collections.deque([""] * self.limit, self.limit)
-        for v in self.values():
-            output.append(row_func(v))
-        return "\n".join(output)
-
-
 class SelectableText(urwid.Edit):
     def valid_char(self, ch):
         return False
 
 
+def eq(expected):
+    def _eq(e):
+        return e.kind == expected
+    return _eq
+
+
+def prefixed(expected):
+    def _prefixed(e):
+        return e.kind.startswith(expected)
+    return _prefixed
+
+
 def render_task_row(row):
     rule = row['rule']
-    return urwid.SelectableText("{:18} -> {}".format(rule.name, row.get("state", "pending")))
+    return SelectableText("{:18} -> {}".format(
+        rule.name,
+        row.get("state", "pending")))
+
+
+def render_status(entry):
+    if isinstance(entry, str):
+        msg = entry
+    else:
+        msg = [(entry.levelname, entry.output)]
+
+    return SelectableText(msg, wrap="clip")
+
+
+def render_test(test_row):
+    t = test_row["test"]
+    result = test_row["result"]
+    symbol = {True: ("pass", "✓"), False: ("fail", "✕")}
+    output = ["{:12} ".format(t.name), symbol.get(result, result)]
+    return urwid.Text(output)
 
 
 class TUIView(View):
     def build_ui(self):
-        self.tasks = {}
-        self.task_view = TextPane()
-        self.status = TextPane(limit=100)
-        self.run_ct = 0
-        self.results = []
+        widgets = []
 
-        self.pile = body = urwid.Pile([
-            #urwid.Text(("header", "Matrix")),
-            #urwid.Divider(),
+        self.tests = collections.OrderedDict()
+        self.test_walker = SimpleDictValueWalker(
+                self.tests,
+                key_func=lambda o: o.name,
+                widget_func=render_test)
+        self.test_view = urwid.ListBox(self.test_walker)
+        self.bus.subscribe(self.handle_tests, prefixed("test."))
 
-            urwid.LineBox(self.tasks),
-            #urwid.LineBox(self.status)
-                ])
-        self.pile = body
-        self.frame = urwid.Frame(body=body)
+        self.tasks = collections.OrderedDict()
+        self.task_walker = SimpleDictValueWalker(
+                self.tasks,
+                key_func=lambda o: o.name,
+                widget_func=render_task_row)
+        self.task_view = urwid.ListBox(self.task_walker)
+        self.bus.subscribe(self.show_rule_state, prefixed("rule."))
+        self.bus.subscribe(self.show_state_change, eq("state.change"))
+
+        widgets.append(urwid.Columns([
+            urwid.LineBox(self.test_view, "Tests"),
+            urwid.LineBox(self.task_view, "Tasks")
+            ]))
+
+        self.status = collections.deque([], 100)
+        self.status_walker = SimpleListRenderWalker(
+                self.status, widget_func=render_status)
+        self.status_view = urwid.ListBox(self.status_walker)
+        self.bus.subscribe(self.show_log, eq("logging.message"))
+        widgets.append(("weight", 0.8,
+                        urwid.LineBox(self.status_view, "Status Log")))
+
+        self.pile = body = urwid.Pile(widgets)
+        self.frame = urwid.Frame(
+                header=urwid.Text("Matrix Test Runner"),
+                body=body)
 
         return self.frame
-
-    def subscribe(self):
-        def is_log(e):
-            return e.kind == "logging.message"
-
-        def is_rule(e):
-            return e.kind.startswith("rule.")
-
-        def is_state(e):
-            return e.kind == "state.change"
-
-        def is_test(e):
-            return e.kind.startswith("test.")
-
-        self.bus.subscribe(self.show_log, is_log)
-        self.bus.subscribe(self.show_rule_state, is_rule)
-        self.bus.subscribe(self.show_state, is_state)
-        self.bus.subscribe(self.handle_tests, is_test)
 
     def handle_tests(self, e):
         name = ""
         if e.kind == "test.schedule":
             # we can set the progress bar up
-            self.run_total = len(e.payload)
-            self.progress = urwid.Text("")
-            self.pile.contents.insert(2, (self.progress, self.pile.options()))
+            for t in e.payload:
+                self.tests[t.name] = {'test': t, 'result': "pending"}
         elif e.kind == "test.start":
             # indicate running
             name = e.payload.name
+            self.tests[name]["result"] = "running"
             self.add_log("Starting Test: %s" % name)
         elif e.kind == "test.complete":
-            # status symbol
-            self.run_ct += 1
-            self.results.append(e.payload.result)
-
-        symbol = {True: ("pass", "✓"), False: ("fail", "✕")}
-        output = ["{}/{} ".format(self.run_ct, self.run_total)]
-        output.extend([symbol[r] for r in self.results])
-        output.append(" {}".format(name))
-        self.progress.set_text(output)
-
-        if e.kind == "test.finish":
-            self.show_timeline(e)
+            name = e.payload.name
+            self.tests[name]["result"] = e.payload.result
+        elif e.kind == "test.finish":
+            return self.show_timeline(e)
+        self.test_walker._modified()
 
     def show_timeline(self, e):
-        p = self.pile
         context = e.payload
         events = []
         # remove status/task widgets
-        p.contents = p.contents[:3]
         for evt in context.timeline:
             tl = SelectableText(str(evt))
             tl = urwid.AttrMap(tl, None, "focused")
@@ -162,34 +246,31 @@ class TUIView(View):
                 self.bus.shutdown()
 
         quitter = urwid.Edit("Press 'q' to exit... ", multiline=False)
-        events.append(quitter)
         urwid.connect_signal(quitter, "change", quit_handler)
+        events.append(quitter)
 
         body = urwid.SimpleFocusListWalker(events)
         listbox = urwid.ListBox(body)
-        ba = urwid.BoxAdapter(listbox, 20)
-        p.contents.append((ba, p.options()))
+        self.frame.body = urwid.LineBox(listbox, "Timeline")
         listbox.focus_position = len(body) - 1
-        self.pile.focus_position = len(self.pile.contents) - 1
 
     def add_log(self, msg):
-        self.status.append(msg)
+        self.status_walker.update(msg)
 
     def show_log(self, event):
-        self.add_log(event.payload.output)
+        self.add_log(event.payload)
 
     def show_rule_state(self, event):
         t = event.payload
         rule = t['rule']
-        self.task_view.setdefault(rule.name, {}).update(t)
-        rows = self.task_view.render(render_task_row)
-        self.tasks.update_all(rows)
+        self.tasks.setdefault(rule.name, {}).update(t)
+        self.task_walker.set_focus(len(self.tasks) - 1)
 
-    def show_state(self, event):
+    def show_state_change(self, event):
         sc = event.payload
-        self.task_view[sc['name']]['state'] = sc['new_value']
-        rows = self.task_view.render(render_task_row)
-        self.tasks.update_all(rows)
+        self.tasks[sc["name"]]["state"] = sc["new_value"]
+        log.debug("show state %s %s", sc["name"], sc["new_value"])
+        self.task_walker._modified()
 
 
 class RawView(View):

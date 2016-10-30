@@ -117,13 +117,9 @@ class Bus:
                             await subscriber(event)
                         else:
                             subscriber(event)
-                    except Exception:
-                        if isinstance(subscriber, FunctionType):
-                            fname = subscriber.__qualname___
-                        else:
-                            fname = subscriber.__func__.__qualname__
+                    except Exception as e:
                         log.warn("Exception %s for %s %d",
-                                 fname,
+                                 name,
                                  event,
                                  evt_ct,
                                  exc_info=True,
