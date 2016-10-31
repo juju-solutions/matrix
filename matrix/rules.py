@@ -151,8 +151,10 @@ class RuleEngine:
                     log.debug("rule '%s' blocked on %s. context: %s ",
                               rule.name, rule.pending(context), context.states)
                 await asyncio.sleep(self.interval, loop=self.loop)
+                continue
 
             rule.lifecycle(context, RUNNING)
+
             if rule.has("on"):
                 if subscription is None:
                     # subscribe the rules action
@@ -170,13 +172,15 @@ class RuleEngine:
                 result = await rule.execute(context)
 
             # EXIT
-            if rule.has("until"):
+            if rule.has("until") or period:
                 # until conditions enter when they haven't been met, so to
                 # exit we ask if all the until conditions for a rule
                 # have been met (hence the not)
                 if all(not c.match(
                         context, rule) for c in rule.select("until")):
                     rule.complete(context, True)
+            else:
+                rule.complete(context, True)
 
             if rule.complete(context):
                 if subscription:
@@ -251,7 +255,7 @@ class RuleEngine:
         else:
             success = all([bool(t.result()) for t in done])
         test.result = success
-        log.info("%s Complete %s", test.name, success)
+        log.info("%s Complete %s %s", test.name, success, context.states)
         self.bus.dispatch(
                 kind="test.complete",
                 origin="matrix",

@@ -1,8 +1,11 @@
+import asyncio
 import collections
+import datetime
 import logging
 
-import attr
 import urwid
+
+from .model import PENDING, RUNNING, PAUSED, COMPLETE
 
 log = logging.getLogger("view")
 
@@ -17,6 +20,19 @@ palette = [
         ("WARN", "dark cyan", "black"),
         ("CRITICAL", "fail"),
         ]
+
+
+TEST_SYMBOLS = {
+        True: ("pass", "\N{HEAVY CHECK MARK}"),
+        False: ("fail", "\N{HEAVY BALLOT X}"),
+        }
+
+STATE_SYMNOLS = {
+        PENDING: ("default", PENDING),
+        PAUSED: ("default", PAUSED),
+        RUNNING: ("pass", RUNNING),
+        COMPLETE: ("pass", COMPLETE)
+        }
 
 
 def identity(o):
@@ -137,6 +153,19 @@ class SelectableText(urwid.Edit):
         return False
 
 
+class ControlBar(urwid.Edit):
+    def configure(self, mapping):
+        self.callback_map = mapping
+        return self
+
+    def keypress(self, size, ch):
+        if ch in self.callback_map:
+            m, ctx, args = self.callback_map[ch]
+            m(ctx, *args)
+            return
+        return ch
+
+
 def eq(expected):
     def _eq(e):
         return e.kind == expected
@@ -149,11 +178,23 @@ def prefixed(expected):
     return _prefixed
 
 
+def chop_microseconds(delta):
+    return delta - datetime.timedelta(microseconds=delta.microseconds)
+
+
 def render_task_row(row):
     rule = row['rule']
-    return SelectableText("{:18} -> {}".format(
-        rule.name,
-        row.get("state", "pending")))
+    state = row.get("state", PENDING)
+    #state = STATE_SYMNOLS[state]
+    output = [
+        "{:18} -> ".format(rule.name),
+        state,
+        " "
+            ]
+    result = row.get("result")
+    if result:
+        output.append(TEST_SYMBOLS[result])
+    return SelectableText(output)
 
 
 def render_status(entry):
@@ -168,8 +209,18 @@ def render_status(entry):
 def render_test(test_row):
     t = test_row["test"]
     result = test_row["result"]
-    symbol = {True: ("pass", "✓"), False: ("fail", "✕")}
-    output = ["{:12} ".format(t.name), symbol.get(result, result)]
+
+    output = ["{:18} ".format(t.name),
+              TEST_SYMBOLS.get(result, result)
+              ]
+    if result in TEST_SYMBOLS:
+        duration = None
+        stop = test_row.get("stop")
+        if not stop:
+            stop = asyncio.get_event_loop().time()
+        duration = stop - test_row["start"]
+        duration = chop_microseconds(datetime.timedelta(seconds=duration))
+        output.append(" {}\N{TIMER CLOCK}".format(duration))
     return urwid.Text(output)
 
 
@@ -219,7 +270,11 @@ class TUIView(View):
         if e.kind == "test.schedule":
             # we can set the progress bar up
             for t in e.payload:
-                self.tests[t.name] = {'test': t, 'result': "pending"}
+                self.tests[t.name] = {
+                        "test": t,
+                        "result": "pending",
+                        "start": e.time,
+                        "stop": 0}
         elif e.kind == "test.start":
             # indicate running
             name = e.payload.name
@@ -228,8 +283,21 @@ class TUIView(View):
         elif e.kind == "test.complete":
             name = e.payload.name
             self.tests[name]["result"] = e.payload.result
+            self.tests[name]["stop"] = e.time
         elif e.kind == "test.finish":
-            return self.show_timeline(e)
+            def quit_handler(ctx):
+                ctx.bus.shutdown()
+
+            def timeline_view(ctx, e):
+                ctx.show_timeline(e)
+
+            control_bar = ControlBar("t for timeline, q to quit")
+            control_bar.configure({
+                'q': (quit_handler, self, ()),
+                't': (timeline_view, self, (e,)),
+                })
+            self.frame.footer = control_bar
+            self.frame.focus_position = "footer"
         self.test_walker._modified()
 
     def show_timeline(self, e):
@@ -252,6 +320,7 @@ class TUIView(View):
         body = urwid.SimpleFocusListWalker(events)
         listbox = urwid.ListBox(body)
         self.frame.body = urwid.LineBox(listbox, "Timeline")
+        self.frame.focus_position = "body"
         listbox.focus_position = len(body) - 1
 
     def add_log(self, msg):
@@ -263,13 +332,13 @@ class TUIView(View):
     def show_rule_state(self, event):
         t = event.payload
         rule = t['rule']
-        self.tasks.setdefault(rule.name, {}).update(t)
+        d = self.tasks.setdefault(rule.name, {})
+        d.update(t)
         self.task_walker.set_focus(len(self.tasks) - 1)
 
     def show_state_change(self, event):
         sc = event.payload
         self.tasks[sc["name"]]["state"] = sc["new_value"]
-        log.debug("show state %s %s", sc["name"], sc["new_value"])
         self.task_walker._modified()
 
 
@@ -300,9 +369,8 @@ class RawView(View):
 
     def show_results(self, context):
         print("Run Complete")
-        symbol = {True: "✓", False: "✕"}
         for test in context.suite:
-            print("{:18} {}".format(test.name, symbol[test.result]))
+            print("{:18} {}".format(test.name, TEST_SYMBOLS[test.result]))
         self.bus.shutdown()
 
 

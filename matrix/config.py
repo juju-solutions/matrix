@@ -44,7 +44,7 @@ LoggingConfig = {
 
         "bus": {
             "handlers": ["file"],
-            "level": "DEBUG",
+            "level": "INFO",
             "propagate": False
             },
 

@@ -20,6 +20,7 @@ class Bus:
         self.__queue = asyncio.Queue()
         self._exit_on_exception = False
         self.should_run = True
+        self.skip_debug_list = ["logging.message"]
 
     def subscribe(self, subscriber, *conditions):
         if not callable(subscriber):
@@ -109,7 +110,8 @@ class Bus:
                         except AttributeError:
                             name = str(subscriber)
 
-                    log.debug("#%d %s -> %s", evt_ct, event, name)
+                    if event.kind not in self.skip_debug_list:
+                        log.debug("#%d %s -> %s", evt_ct, event, name)
                     applied = True
 
                     try:

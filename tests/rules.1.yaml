@@ -1,5 +1,5 @@
 tests:
-- name: traffic
+- name: traffic & chaos
   description: Traffic in the face of Chaos
   rules:
     - do:
@@ -17,4 +17,21 @@ tests:
         action: health
       periodic: 5
       until: chaos.complete
+      after: deploy
+- name: just-traffic
+  description: Traffic on the deploy
+  rules:
+    - do:
+        action: matrix.plugins.actions.deploy
+        entity: cs:bundle/wiki-simple
+        version: current
+    - do:
+        action: tests.traffic.test_traffic
+        duration: 12
+      until: health.state.healthy
+      after: deploy
+    - do:
+        action: tests.health2.health2
+        duration: 5
+      until: traffic.complete
       after: deploy
