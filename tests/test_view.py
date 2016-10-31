@@ -3,17 +3,15 @@ from matrix import view
 import urwid
 
 
-tasks = collections.OrderedDict({
-    "alpha": {"name": "alpha", "value": "This is alpha", "status": "running"},
-    "beta": {"name": "beta", "value": "This is beta", "status": "pending"},
-    })
-
-
 def render_row(row):
     return urwid.Text("{} {}".format(row["name"], row["status"]))
 
 
 def test_dict_widget():
+    tasks = collections.OrderedDict()
+    tasks["alpha"] = {"name": "alpha", "value": "This is alpha", "status": "running"}
+    tasks["beta"] = {"name": "beta", "value": "This is beta", "status": "pending"}
+
     task_walker = view.SimpleDictValueWalker(
             tasks,
             key_func=lambda o: o["name"],
