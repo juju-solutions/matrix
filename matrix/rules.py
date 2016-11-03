@@ -156,7 +156,9 @@ class RuleEngine:
                 if not rule.match(context) or subscription is not None:
                     if not subscription:
                         log.debug("rule '%s' blocked on %s. context: %s ",
-                                  rule.name, rule.pending(context), context.states)
+                                  rule.name,
+                                  rule.pending(context),
+                                  context.states)
                     await asyncio.sleep(self.interval, loop=self.loop)
                     continue
                 break
@@ -165,6 +167,7 @@ class RuleEngine:
                 # would be cancelled by having its "until" condition met.
                 # In this case we track the event, run the action
                 # once and then exit.
+                # XXX: we could explicitly check the until condition here
                 cancelled = True
                 break
 

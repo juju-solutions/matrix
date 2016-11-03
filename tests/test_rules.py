@@ -36,7 +36,10 @@ def test_rule_conditions():
 
     context.states['chaos'] = "complete"
     context.states['test_traffic'] = "running"
+    context.states['health.status'] = 'healthy'
     assert t[0].match(context) is True
-    assert t[1].match(context) is True
+    assert t[1].match(context) is False
     assert t[2].match(context) is True
-    assert t[3].match(context) is True
+    # The until condition here is already met
+    # thus the rule won't match
+    assert t[3].match(context) is False

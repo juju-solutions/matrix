@@ -210,9 +210,7 @@ def render_test(test_row):
     t = test_row["test"]
     result = test_row["result"]
 
-    output = ["{:18} ".format(t.name),
-              TEST_SYMBOLS.get(result, result)
-              ]
+    output = [t.name.ljust(18)]
     if result in TEST_SYMBOLS:
         duration = None
         stop = test_row.get("stop")
@@ -220,7 +218,8 @@ def render_test(test_row):
             stop = asyncio.get_event_loop().time()
         duration = stop - test_row["start"]
         duration = chop_microseconds(datetime.timedelta(seconds=duration))
-        output.append(" {}\N{TIMER CLOCK}".format(duration))
+        output.append(" {}\N{TIMER CLOCK}  ".format(duration))
+    output.append(TEST_SYMBOLS.get(result, result))
     return urwid.Text(output)
 
 
@@ -263,11 +262,12 @@ class TUIView(View):
         self.model_walker = SimpleListRenderWalker(self.model)
         self.model_view = urwid.ListBox(self.model_walker)
         # Ideally libjuju provides something like this
-        self.model_watcher = asyncio.get_event_loop().create_task(self.watch_juju_status())
+        self.model_watcher = asyncio.get_event_loop().create_task(
+                self.watch_juju_status())
 
         widgets.append(("weight", 2, urwid.Columns([
             urwid.LineBox(self.status_view, "Status Log"),
-            urwid.LineBox(self.model_view, "Model"),
+            urwid.LineBox(self.model_view, "Juju Model"),
             ])))
 
         self.pile = body = urwid.Pile(widgets)
@@ -316,8 +316,6 @@ class TUIView(View):
             name = e.payload['test'].name
             self.tests[name]["result"] = e.payload['result']
             self.tests[name]["stop"] = e.time
-            self.add_log("-" * 78)
-            self.add_log("Test Complete: %s" % (name))
             self.add_log("-" * 78)
         elif e.kind == "test.finish":
             def quit_handler(ctx):

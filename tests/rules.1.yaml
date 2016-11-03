@@ -14,10 +14,10 @@ tests:
         action: tests.chaos.chaos
       while: test_traffic
     - do:
-        action: health
+        action: matrix.plugins.actions.health
       periodic: 5
       until: chaos.complete
-      after: deploy
+      after: health.status.healthy
 - name: just-traffic
   description: Traffic on the deploy
   rules:

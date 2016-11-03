@@ -52,7 +52,6 @@ LoggingConfig = {
             "propagate": False
             },
 
-
         "requests.packages.urllib3": {
             "handlers": ["file"],
             "level": "WARN",
