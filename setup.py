@@ -13,7 +13,7 @@ SETUP = {
     'version': "0.5.3",
     'author': "Juju Developers",
     'author_email': "juju@lists.ubuntu.com",
-    'url': "https://github.com/bcsaller/matrix",
+    'url': "https://github.com/juju-solutions/matrix",
     'license': "Apache 2 License",
     'long_description': open('README.md').read(),
     'entry_points': {
