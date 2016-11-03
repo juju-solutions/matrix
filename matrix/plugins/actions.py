@@ -11,10 +11,6 @@ async def deploy(context, rule, action, event=None):
 
 
 async def health(context, rule, action, event=None):
-    if not context.apps:
-        # this shouldn't happen, because the health rule has
-        # an "after: deploy", but that doesn't seem to be honored
-        return
     stable_period = timedelta(seconds=action.args.get('stability_period', 30))
     errored_apps = []
     busy_apps = []
@@ -43,10 +39,11 @@ async def health(context, rule, action, event=None):
     if errored_apps or errored_units:
         result = 'unhealthy'
     elif (busy_apps or busy_units) and \
-            context.states.get('deployment') != 'healthy':
+            context.states.get('health.status') != 'healthy':
         result = 'busy'
     else:
         result = 'healthy'
 
-    context.set_state('deployment', result)
+    context.set_state('health.status', result)
     rule.log.info("Health check: %s", result)
+    return True

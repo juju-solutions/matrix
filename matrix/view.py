@@ -2,6 +2,7 @@ import asyncio
 import collections
 import datetime
 import logging
+import os
 
 import urwid
 
@@ -10,14 +11,14 @@ from .model import PENDING, RUNNING, PAUSED, COMPLETE
 log = logging.getLogger("view")
 
 palette = [
-        ("default", "white", "black"),
-        ("header", "white", "black", "standout"),
-        ("pass", "dark green", "black"),
-        ("fail", "dark red", "black"),
+        ("default", "default", "default"),
+        ("header", "white", "default", "standout"),
+        ("pass", "dark green", "default"),
+        ("fail", "dark red", "default"),
         ("focused", "black", "dark cyan", "standout"),
-        ("DEBUG", "default"),
-        ("INFO", "dark green", "black"),
-        ("WARN", "dark cyan", "black"),
+        ("DEBUG", "yellow", "default"),
+        ("INFO", "default", "default"),
+        ("WARN", "dark cyan", "default"),
         ("CRITICAL", "fail"),
         ]
 
@@ -185,10 +186,9 @@ def chop_microseconds(delta):
 def render_task_row(row):
     rule = row['rule']
     state = row.get("state", PENDING)
-    #state = STATE_SYMNOLS[state]
     output = [
         "{:18} -> ".format(rule.name),
-        state,
+        state.ljust(15),
         " "
             ]
     result = row.get("result")
@@ -203,7 +203,7 @@ def render_status(entry):
     else:
         msg = [(entry.levelname, entry.output)]
 
-    return SelectableText(msg, wrap="clip")
+    return SelectableText(msg, wrap="space")
 
 
 def render_test(test_row):
@@ -228,10 +228,13 @@ class TUIView(View):
     def build_ui(self):
         widgets = []
 
+        def fetch_name(obj):
+            return obj['test'].name
+
         self.tests = collections.OrderedDict()
         self.test_walker = SimpleDictValueWalker(
                 self.tests,
-                key_func=lambda o: o.name,
+                key_func=fetch_name,
                 widget_func=render_test)
         self.test_view = urwid.ListBox(self.test_walker)
         self.bus.subscribe(self.handle_tests, prefixed("test."))
@@ -245,25 +248,51 @@ class TUIView(View):
         self.bus.subscribe(self.show_rule_state, prefixed("rule."))
         self.bus.subscribe(self.show_state_change, eq("state.change"))
 
-        widgets.append(urwid.Columns([
+        widgets.append(("weight", 0.6, urwid.Columns([
             urwid.LineBox(self.test_view, "Tests"),
             urwid.LineBox(self.task_view, "Tasks")
-            ]))
+            ])))
 
         self.status = collections.deque([], 100)
         self.status_walker = SimpleListRenderWalker(
                 self.status, widget_func=render_status)
         self.status_view = urwid.ListBox(self.status_walker)
         self.bus.subscribe(self.show_log, eq("logging.message"))
-        widgets.append(("weight", 0.8,
-                        urwid.LineBox(self.status_view, "Status Log")))
+
+        self.model = []
+        self.model_walker = SimpleListRenderWalker(self.model)
+        self.model_view = urwid.ListBox(self.model_walker)
+        # Ideally libjuju provides something like this
+        self.model_watcher = asyncio.get_event_loop().create_task(self.watch_juju_status())
+
+        widgets.append(("weight", 2, urwid.Columns([
+            urwid.LineBox(self.status_view, "Status Log"),
+            urwid.LineBox(self.model_view, "Model"),
+            ])))
 
         self.pile = body = urwid.Pile(widgets)
         self.frame = urwid.Frame(
                 header=urwid.Text("Matrix Test Runner"),
                 body=body)
-
         return self.frame
+
+    async def watch_juju_status(self):
+        self.running = True
+        while self.running:
+            p = await asyncio.create_subprocess_shell(
+                    "juju status --color=false",
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env={"PATH": os.environ.get("PATH"),
+                         "HOME": os.environ.get("HOME")}
+                    )
+            stdout, stderr = await p.communicate()
+            output = stdout.decode('utf-8')
+            self.model.clear()
+            self.model.extend(output.splitlines())
+            self.model_walker._modified()
+            await asyncio.sleep(2.0)
 
     def handle_tests(self, e):
         name = ""
@@ -279,13 +308,20 @@ class TUIView(View):
             # indicate running
             name = e.payload.name
             self.tests[name]["result"] = "running"
-            self.add_log("Starting Test: %s" % name)
+            self.add_log(
+                "Starting Test: %s %s" % (name, e.payload.description))
+            self.add_log("=" * 78)
+            self.test_walker.set_focus(name)
         elif e.kind == "test.complete":
-            name = e.payload.name
-            self.tests[name]["result"] = e.payload.result
+            name = e.payload['test'].name
+            self.tests[name]["result"] = e.payload['result']
             self.tests[name]["stop"] = e.time
+            self.add_log("-" * 78)
+            self.add_log("Test Complete: %s" % (name))
+            self.add_log("-" * 78)
         elif e.kind == "test.finish":
             def quit_handler(ctx):
+                self.running = False
                 ctx.bus.shutdown()
 
             def timeline_view(ctx, e):
@@ -311,6 +347,7 @@ class TUIView(View):
 
         def quit_handler(edit, new_text):
             if new_text.lower() == "q":
+                self.running = False
                 self.bus.shutdown()
 
         quitter = urwid.Edit("Press 'q' to exit... ", multiline=False)
@@ -338,20 +375,16 @@ class TUIView(View):
 
     def show_state_change(self, event):
         sc = event.payload
-        self.tasks[sc["name"]]["state"] = sc["new_value"]
-        self.task_walker._modified()
+        if sc["name"] in self.tasks:
+            self.tasks[sc["name"]]["state"] = sc["new_value"]
+            self.task_walker._modified()
 
 
 class RawView(View):
     def subscribe(self):
-        self.bus.subscribe(
-                self.show_log,
-                lambda e: e.kind == "logging.message")
-
-        def is_test(e):
-            return e.kind.startswith("test")
-
-        self.bus.subscribe(self.show_test, is_test)
+        self.results = {}
+        self.bus.subscribe(self.show_log, eq("logging.message"))
+        self.bus.subscribe(self.show_test, prefixed("test."))
 
     def show_log(self, e):
         print(e.payload.output)
@@ -362,16 +395,15 @@ class RawView(View):
             print("Start Test", test.name, test.description)
             print("=" * 78)
         elif e.kind == "test.complete":
-            print("Test Complete", test.name, test.result)
+            self.results[test['test'].name] = test['result']
             print("-" * 78)
         elif e.kind == "test.finish":
-            self.show_results(e.payload)
-
-    def show_results(self, context):
-        print("Run Complete")
-        for test in context.suite:
-            print("{:18} {}".format(test.name, TEST_SYMBOLS[test.result]))
-        self.bus.shutdown()
+            print("Run Complete")
+            context = e.payload
+            for test in context.suite:
+                print("{:18} {}".format(
+                    test.name, TEST_SYMBOLS[self.results[test.name]][1]))
+            self.bus.shutdown()
 
 
 class NoopViewController:

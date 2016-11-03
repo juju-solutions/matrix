@@ -3,10 +3,8 @@ LoggingConfig = {
     "disable_existing_loggers": False,
     "formatters": {
         "standard": {
-            "()": "matrix.utils.HighlightFormatter",
             "format": "{name}:{lineno}:{funcName}: {message}",  # noqa
             "style": "{",
-            "line_levels": True,
         },
     },
     "filters": {
@@ -48,23 +46,37 @@ LoggingConfig = {
             "propagate": False
             },
 
+        "juju.model": {
+            "handlers": ["file"],
+            "level": "INFO",
+            "propagate": False
+            },
+
+
         "requests.packages.urllib3": {
-            "handlers": ["default"],
+            "handlers": ["file"],
             "level": "WARN",
             "propagate": False
             },
 
         "websocket": {
-            "handlers": ["default"],
+            "handlers": ["file"],
             "level": "WARN",
             "propagate": False
             },
 
        "websockets": {
-            "handlers": ["default"],
+            "handlers": ["file"],
             "level": "WARN",
             "propagate": False
             },
+
+       "websockets.protocol": {
+            "handlers": ["file"],
+            "level": "WARN",
+            "propagate": False
+            },
+
 
    }
 }

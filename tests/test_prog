@@ -12,7 +12,7 @@
       "do":
         "action": matrix.plugins.actions.health
       "until": chaos.complete
-    - "after": deployment.healthy
+    - "after": health.status.healthy
       "do":
         "action": tests.chaos.chaos
 #- "name": traffic

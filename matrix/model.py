@@ -62,15 +62,16 @@ class Context:
     apps = attr.ib(default=attr.Factory(list), repr=False)
 
     def set_state(self, name, value):
-        old_value = self.states.get(name)
+        old_value = self.states.get(name, _marker)
         self.states[name] = value
-        # Cancel any tasks blocked on this state
-        if not isinstance(value, bool):
-            waitname = ".".join((name, value))
-        else:
-            waitname = name
+        # Cancel any tasks blocked on this state/value
+        # combination
+        if self.waiters:
+            if "." not in name:
+                waitname = ".".join((name, value))
+            else:
+                waitname = name
         for t, owner in self.waiters.get(waitname, []):
-            log.debug("Stop %s on %s", owner.name, waitname)
             t.cancel()
         if old_value != value:
             self.bus.dispatch(kind="state.change",
@@ -81,28 +82,6 @@ class Context:
 
     def __str__(self):
         return "Context object"
-
-    def get_any(self, states, rule, condition):
-        """Are any states found in context.states. States are either callables
-        returning a bool, or str state names which should resolve in context
-        """
-        for state in states:
-            if callable(state):
-                if state(self, rule, condition) == True:
-                    return True
-            if state in self.states:
-                return True
-
-        return False
-
-    def get_all(self, states, rule, condition):
-        for state in states:
-            if callable(state):
-                if not state(self, rule, condition):
-                    return False
-            elif state not in self.states:
-                return False
-        return True
 
 
 @attr.s
@@ -143,6 +122,31 @@ class Action:
         log.debug("Resolved %s to %s", self.command, cmd)
         return cmd
 
+    async def setup_event(self, context, rule):
+        # create and manage an event subscriber
+        # for the condition in an "on" clause
+        # when the "on" condition's statement is matched
+        # to event.kind we use the curried handler
+        # additionally passing the event itself.
+        # XXX: this changes the call signature from other types of
+        # plugins, maybe that additionally needs kwargs
+        # call sig: callback(context, rule, action, event)
+        cmd = self.resolve(context)
+        async def event_wrapper(event):
+            if isinstance(cmd, Path):
+                callback = self.execute_process
+            else:
+                callback = self.execute_plugin
+            return await callback(context, cmd, rule, event)
+
+        # XXX: handle in loop?
+        on_cond = rule.select_one("on")
+
+        def is_cond(e):
+            return (fnmatch.fnmatch(e.kind, on_cond.name) and
+                    rule.lifecycle(context) == RUNNING)
+        return context.bus.subscribe(event_wrapper, is_cond)
+
     async def execute(self, context, rule):
         # create a log object for context
         cmd = self.resolve(context)
@@ -166,31 +170,6 @@ class Action:
             raise
 
         return result
-
-    async def setup_event(self, context, rule):
-        # create and manage an event subscriber
-        # for the condition in an "on" clause
-        # when the "on" condition's statement is matched
-        # to event.kind we use the curried handler
-        # additionally passing the event itself.
-        # XXX: this changes the call signature from other types of
-        # plugins, maybe that additionally needs kwargs
-        # call sig: callback(context, rule, action, event)
-        cmd = self.resolve(context)
-        async def event_wrapper(event):
-            if isinstance(cmd, Path):
-                callback = self.execute_process
-            else:
-                callback = self.execute_plugin
-            return await callback(context, cmd, rule, event)
-
-        # XXX: handle in loop?
-        on_cond = rule.select_one("on")
-
-        def is_cond(e):
-            return (fnmatch.fnmatch(e.kind, on_cond.statement_name) and
-                    rule.lifecycle(context) == RUNNING)
-        return context.bus.subscribe(event_wrapper, is_cond)
 
     async def execute_plugin(self, context, cmd, rule, event=None):
         # Run code that isn't a coro in an executor
@@ -243,16 +222,17 @@ def always_trigger(context, rule, condition):
 
 
 def until_trigger(context, rule, condition):
-    value = context.states.get(condition.statement[0], _marker)
-    if value is _marker or value != condition.statement:
-        return True
-    return False
-
-
-def in_state_trigger(context, rule, condition):
-    value = context.states.get(condition.statement[0], _marker)
-    valid = condition.TRIGGERS[condition.mode]
-    return value in valid
+    # ex: statement will be like deploy.complete or
+    # health.status.healthy
+    if "." in condition.statement:
+        k, v = condition.statement.rsplit(".", 1)
+        v = [v]
+    else:
+        k = condition.statement
+        v = None
+    if not v:
+        return k not in condition.states
+    return k not in context.states or context.states[k] not in v
 
 
 @attr.s
@@ -267,41 +247,44 @@ class Condition:
             "after": [COMPLETE],
             "while": [RUNNING, PAUSED],
             "when": [RUNNING, COMPLETE, PAUSED],
-            "until": until_trigger,
+            "until": [],
             "on": always_trigger,  # bus event triggers only on
                                    # conditions don't block rule
                                    # activation by themselves
             "periodic": always_trigger,
             }
 
-    @property
-    def statement_name(self):
-        return ".".join(self.statement)
-
-    def _normalize_statements(self):
-        statements = []
-        tests = self.TRIGGERS[self.mode]
-        if callable(tests):
-            # Should be in the form call(context, rule, condition) -> bool
-            statements.append(tests)
-        else:
-            for t in tests:
-                if "." in self.statement:
-                    # match the state explicitly
-                    r = t
-                else:
-                    r = in_state_trigger
-                statements.append(r)
-        return statements
-
     def match(self, context, rule):
         """Resolve the state listed in statement from the context"""
         # Map any state to a name, resolve that name in context.states
-        return context.get_any(self._normalize_statements(), rule, self)
+        matchers = self.TRIGGERS[self.mode]
+        if callable(matchers):
+            # There will only be one callable in this case
+            # XXX: we might want to return the list of states
+            # directly and continue our normal tests here
+            return matchers(context, rule, self)
+        else:
+            # we test that both the state exists and that its value is
+            # in a set specified in the config or falling back
+            # to the states that are valid and defined in TRIGGERS
+            # for a given key word
+            if "." in self.statement:
+                k, v = self.statement.rsplit(".", 1)
+                v = [v]
+            else:
+                k = self.statement
+                v = self.TRIGGERS[self.mode]
+            result = k in context.states and context.states[k] in v
+            if self.mode == "until":
+                result = not result
+            return result
+
+    def __str__(self):
+        return "%s:%s" % (self.mode, self.statement)
 
     @property
     def name(self):
-        return ".".join(self.statement)
+        return self.statement
 
 
 @attr.s
@@ -329,7 +312,7 @@ class Rule:
             value = bool(value)
             if value is True:
                 self.lifecycle(context, COMPLETE)
-        return bool(context.states.get(name, False))
+        return bool(context.states.get(name, False) == COMPLETE)
 
     def match(self, context):
         if not self.conditions:

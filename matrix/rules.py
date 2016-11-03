@@ -30,7 +30,12 @@ class Test:
     name = attr.ib(default=attr.Factory(pet_test))
     description = attr.ib(default="")
     rules = attr.ib(default=attr.Factory(list))
-    result = attr.ib(default=None, init=False)
+
+    def result(self, context, value=_marker):
+        name = "test.%s" % self.name
+        if value is not _marker:
+            context.set_state(name,  value)
+        return context.states.get(name)
 
     def complete(self, context):
         return all([r.complete(context) for r in self])
@@ -73,8 +78,6 @@ class Test:
                         continue
                     v = d.get(phase)
                     if v:
-                        if isinstance(v, str):
-                            v = v.rsplit(".", 1)
                         conditions.append(
                                 model.Condition(
                                     mode=phase,
@@ -144,58 +147,80 @@ class RuleEngine:
         if rule.has("periodic"):
             period = rule.select_one("periodic").statement
 
+        # Once we enter a rule we run it until it completes
+        # even if its entry state is no longer met.
+        cancelled = False
         while True:
             # ENTER
-            if not rule.match(context) or subscription is not None:
-                if not subscription:
-                    log.debug("rule '%s' blocked on %s. context: %s ",
-                              rule.name, rule.pending(context), context.states)
-                await asyncio.sleep(self.interval, loop=self.loop)
-                continue
+            try:
+                if not rule.match(context) or subscription is not None:
+                    if not subscription:
+                        log.debug("rule '%s' blocked on %s. context: %s ",
+                                  rule.name, rule.pending(context), context.states)
+                    await asyncio.sleep(self.interval, loop=self.loop)
+                    continue
+                break
+            except asyncio.CancelledError:
+                # Handle a special case where the rule was never entered and
+                # would be cancelled by having its "until" condition met.
+                # In this case we track the event, run the action
+                # once and then exit.
+                cancelled = True
+                break
 
-            rule.lifecycle(context, RUNNING)
+        while True:
+            try:
+                rule.lifecycle(context, RUNNING)
 
-            if rule.has("on"):
-                if subscription is None:
-                    # subscribe the rules action
-                    # The execution is managed by the subscription
-                    # however, we check here if the termination
-                    # conditions have been met.
-                    # XXX: "on" events expect an "until" clause to handle their
-                    # exit
-                    subscription = await rule.setup_event(context)
-                    log.debug("Subscribed  'on' event %s", rule)
-            else:
-                # RUN
-                # The rules conditions were met
-                # we should spawn the task and record states for it in context
-                result = await rule.execute(context)
+                if rule.has("on"):
+                    if subscription is None:
+                        # subscribe the rules action
+                        # The execution is managed by the subscription
+                        # however, we check here if the termination
+                        # conditions have been met.
+                        # XXX: "on" events expect an "until" clause to handle their
+                        # exit
+                        subscription = await rule.setup_event(context)
+                        log.debug("Subscribed  'on' event %s", rule)
+                else:
+                    # RUN
+                    # The rules conditions were met
+                    # we should spawn the task and record states for it in context
+                    result = await rule.execute(context)
+                    # XXX: if result is False
 
-            # EXIT
-            if rule.has("until") or period:
-                # until conditions enter when they haven't been met, so to
-                # exit we ask if all the until conditions for a rule
-                # have been met (hence the not)
-                if all(not c.match(
-                        context, rule) for c in rule.select("until")):
+                # EXIT
+                # An "until" rule will get cancelled when its condition is
+                # invalidated, no special handling is needed here
+                if not rule.has("until") or not period or cancelled is True:
                     rule.complete(context, True)
-            else:
-                rule.complete(context, True)
 
-            if rule.complete(context):
+                if rule.complete(context):
+                    if subscription:
+                        self.bus.unsubscribe(subscription)
+                        result = True
+                        log.debug("Unsubscribed 'on' event %s", rule)
+                    break
+                elif period:
+                    # our example uses periodic to do health checks
+                    # in reality we will want rule_runner to block on
+                    # a lock/condition such that we don't progress testing
+                    # until we've assessed system health
+                    rule.lifecycle(context, PAUSED)
+                    await asyncio.sleep(period, loop=self.loop)
+                else:
+                    await asyncio.sleep(self.interval, loop=self.loop)
+            except asyncio.CancelledError:
+                log.debug("Cancelling %s %s", rule.name, context.states)
+                rule.complete(context, True)
                 if subscription:
                     self.bus.unsubscribe(subscription)
                     result = True
-                    log.debug("Unsubscribed  'on' event %s", rule)
+                    log.debug("Unsubscribed 'on' event %s", rule)
                 break
-            elif period:
-                # our example uses periodic to do health checks
-                # in reality we will want rule_runner to block on
-                # a lock/condition such that we don't progress testing
-                # until we've assessed system health
-                rule.lifecycle(context, PAUSED)
-                await asyncio.sleep(period, loop=self.loop)
-                rule.lifecycle(context, RUNNING)
+
+        if result is None:
+            log.warn("Rule for %s should return bool for success", rule.name)
 
         self.bus.dispatch(
                 kind="rule.done",
@@ -227,7 +252,7 @@ class RuleEngine:
                 # check that list and on a match cancel() each task that was
                 # "until" the state was set.
                 for u in untils:
-                    w = context.waiters.setdefault(u.name, [])
+                    w = context.waiters.setdefault(u.statement, [])
                     log.debug(
                             "Adding task to wait list on %s for rule %s",
                             u.name, rule.name)
@@ -254,12 +279,11 @@ class RuleEngine:
                           s.getvalue())
         else:
             success = all([bool(t.result()) for t in done])
-        test.result = success
-        log.info("%s Complete %s %s", test.name, success, context.states)
+        log.debug("%s Complete %s %s", test.name, success, context.states)
         self.bus.dispatch(
                 kind="test.complete",
                 origin="matrix",
-                payload=test)
+                payload=dict(test=test, result=success))
         return success
 
     async def run(self, context):
@@ -289,7 +313,6 @@ class RuleEngine:
             await self.run_once(context, test)
             context.states.clear()
             context.waiters.clear()
-
         self.bus.dispatch(
                 origin="matrix",
                 kind="test.finish",

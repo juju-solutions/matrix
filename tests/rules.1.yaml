@@ -28,10 +28,9 @@ tests:
     - do:
         action: tests.traffic.test_traffic
         duration: 12
-      until: health.state.healthy
       after: deploy
     - do:
-        action: tests.health2.health2
-        duration: 5
-      until: traffic.complete
+        action: matrix.plugins.actions.health
+      periodic: 5
+      until: test_traffic.complete
       after: deploy
