@@ -11,10 +11,10 @@
       "periodic": 5
       "do":
         "action": matrix.plugins.actions.health
-      "until": glitch.complete
-    - "after": deployment.healthy
+      "until": chaos.complete
+    - "after": health.status.healthy
       "do":
-        "action": matrix.plugins.actions.glitch
+        "action": tests.chaos.chaos
 #- "name": traffic
 #  "description": Traffic in the face of Chaos
 #  "rules":

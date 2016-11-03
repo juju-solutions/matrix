@@ -69,10 +69,12 @@ def main(args=None):
     loop.set_debug(options.log_level == logging.DEBUG)
 
     if options.skin == "tui":
-        view = TUIView(bus)
+        screen = urwid.raw_display.Screen()
+        view = TUIView(bus, screen)
         view_controller = urwid.MainLoop(
             view.widgets,
             palette,
+            screen=screen,
             event_loop=urwid.AsyncioEventLoop(loop=loop),
             unhandled_input=unhandled)
     else:

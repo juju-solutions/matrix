@@ -24,9 +24,9 @@ class _Selectors(dict, metaclass=Singleton):
         self[f.__qualname__] = wrapper
         if name in self:
             # There is a conflict in short name
-            log.warn("selector %s already registered %s vs %s",
-                     name, f.__qualname__,
-                     self[name].__qualname__)
+            log.debug("selector %s already registered %s vs %s",
+                      name, f.__qualname__,
+                      self[name].__qualname__)
         else:
             self[name] = wrapper
         return wrapper

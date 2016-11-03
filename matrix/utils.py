@@ -82,27 +82,6 @@ class DynamicFilter(logging.Filter):
         return False
 
 
-class HighlightFormatter(logging.Formatter):
-    def __init__(self, *args, **kwargs):
-        self.line_levels = kwargs.pop("line_levels", True)
-        self.pretty = kwargs.pop("pretty", True)
-        super(HighlightFormatter, self).__init__(*args, **kwargs)
-
-    def format(self, record):
-        # Add the terminal to the formatter allowing
-        # standard blessing.py syntax in the format
-        output = super(HighlightFormatter, self).format(record)
-        if False and self.line_levels:
-            output = ({
-                logging.CRITICAL: ("bold yellow", "red"),
-                logging.ERROR: ("red", "black"),
-                logging.WARNING: ("yellow", "black"),
-                logging.INFO: ("green", "black"),
-                logging.DEBUG: ""
-                }[record.levelno], output)
-        return output
-
-
 class EventHandler(logging.Handler):
     def __init__(self, level=logging.NOTSET, bus=None):
         super(EventHandler, self).__init__(level)
