@@ -71,8 +71,8 @@ class Context:
                 waitname = ".".join((name, value))
             else:
                 waitname = name
-        for t, owner in self.waiters.get(waitname, []):
-            t.cancel()
+            for t, owner in self.waiters.get(waitname, []):
+                t.cancel()
         if old_value != value:
             self.bus.dispatch(kind="state.change",
                               origin="context",
