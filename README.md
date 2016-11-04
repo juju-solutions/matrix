@@ -96,7 +96,7 @@ marked as complete after its task has been cancelled.
 Quick Start
 -----------
 
-    clone https://github.com/juju-solutions/matrix.git
+    git clone https://github.com/juju-solutions/matrix.git
     cd matrix/
     tox
     .tox/py35/bin/matrix tests/test_prog
