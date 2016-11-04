@@ -9,7 +9,7 @@ tests:
     - do:
         action: tests.traffic.test_traffic
       until: chaos.complete
-      after: deploy
+      after: health.status.healthy
     - do:
         action: tests.chaos.chaos
       while: test_traffic
@@ -17,7 +17,7 @@ tests:
         action: matrix.plugins.actions.health
       periodic: 5
       until: chaos.complete
-      after: health.status.healthy
+      after: deploy
 - name: just-traffic
   description: Traffic on the deploy
   rules:
@@ -28,7 +28,7 @@ tests:
     - do:
         action: tests.traffic.test_traffic
         duration: 12
-      after: deploy
+      after: health.status.healthy
     - do:
         action: matrix.plugins.actions.health
       periodic: 5
