@@ -1,3 +1,6 @@
+*This is Alpha software. It isn't feature complete yet.*
+
+
 Matrix
 ======
 
@@ -15,6 +18,24 @@ a fresh codebase.
 
 Every effort should be made by the engine to correlate mutations to failure
 states and produce helpful logs.
+
+Quick Start
+-----------
+
+    git clone https://github.com/juju-solutions/matrix.git
+    cd matrix/
+    tox
+    . .tox.py35/bin/activate
+    matrix tests/test_prog
+
+When you update the branch remove the .tox directory and re-run tox
+
+    git pull
+    deactivate ## if in a tox virtualenv already
+    tox -r 
+    . .tox.py35/bin/activate
+    matrix tests/test_prog
+
 
 High level Design
 ------------------
@@ -93,17 +114,22 @@ instance. The object should return a boolean indicating if the rule is
 complete. If the task is designed to run via an 'until' condition it will be
 marked as complete after its task has been cancelled.
 
-Quick Start
------------
 
-    git clone https://github.com/juju-solutions/matrix.git
-    cd matrix/
-    tox
-    .tox/py35/bin/matrix tests/test_prog
+Interactions with other tools
+-----------------------------
 
-When you update the branch remove the .tox directory and re-run tox
+Matrix can be used with existing testing tools. More work around integration is
+coming, but currently it is simple enough to have matrix run an existing
+testing tool and design your test plans around that. It is also possible to
+have an external runner call matrix and depend on its return value.
 
-    git pull
-    rm -rf ./tox
-    tox
-    .tox/py35/bin/matrix tests/test_prog
+The advantages of a system like Matrix are not only in a reusable suite of
+tests but in helping to extract information from the failure cases that can be
+used to improve both the charms and their upstream software in cases where that
+makes sense. Because of the developing approach to tying failures to properties
+of the model and the runtime there is more to be gleaned than a simple
+pass/fail gate. 
+
+When Matrix is complete it should provide more information about the runtime of
+your deployments than you'd normally have access to and should be seen as part
+of the feedback loop DevOps depends on.
