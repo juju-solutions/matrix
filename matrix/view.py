@@ -258,6 +258,7 @@ class TUIView(View):
         self.status_view = urwid.ListBox(self.status_walker)
         self.bus.subscribe(self.show_log, eq("logging.message"))
 
+        self.running = True
         self.model = []
         self.model_walker = SimpleListRenderWalker(self.model)
         self.model_view = urwid.ListBox(self.model_walker)
@@ -265,9 +266,18 @@ class TUIView(View):
         self.model_watcher = asyncio.get_event_loop().create_task(
                 self.watch_juju_status())
 
+        self.debug = collections.deque([], 200)
+        self.debug_walker = SimpleListRenderWalker(self.debug)
+        self.debug_view = urwid.ListBox(self.debug_walker)
+        self.debug_watcher = asyncio.get_event_loop().create_task(
+                self.debug_juju_log())
+
         widgets.append(("weight", 2, urwid.Columns([
             urwid.LineBox(self.status_view, "Status Log"),
-            urwid.LineBox(self.model_view, "Juju Model"),
+            urwid.Pile([
+                urwid.LineBox(self.model_view, "Juju Model"),
+                ("weight", 0.6, urwid.LineBox(self.debug_view, "Juju Debug")),
+                ])
             ])))
 
         self.pile = body = urwid.Pile(widgets)
@@ -277,11 +287,9 @@ class TUIView(View):
         return self.frame
 
     async def watch_juju_status(self):
-        self.running = True
         while self.running:
             p = await asyncio.create_subprocess_shell(
                     "juju status --color=false",
-                    stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
@@ -293,6 +301,20 @@ class TUIView(View):
             self.model.extend(output.splitlines())
             self.model_walker._modified()
             await asyncio.sleep(2.0)
+
+    async def debug_juju_log(self):
+        p = await asyncio.create_subprocess_shell(
+                    "juju debug-log --color=false --tail",
+                    stdout=asyncio.subprocess.PIPE,
+                    env={"PATH": os.environ.get("PATH"),
+                         "HOME": os.environ.get("HOME")}
+                    )
+        while self.running and not p.returncode:
+            data = await p.stdout.readline()
+            output = data.decode('utf-8').rstrip()
+            self.debug_walker.update(output, -1)
+        if not p.returncode:
+            p.kill()
 
     def handle_tests(self, e):
         name = ""
@@ -353,7 +375,7 @@ class TUIView(View):
         events.append(quitter)
 
         body = urwid.SimpleFocusListWalker(events)
-        listbox = urwid.ListBox(body)
+        listbox = urwid.TreeListBox(body)
         self.frame.body = urwid.LineBox(listbox, "Timeline")
         self.frame.focus_position = "body"
         listbox.focus_position = len(body) - 1
