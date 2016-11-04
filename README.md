@@ -93,4 +93,17 @@ instance. The object should return a boolean indicating if the rule is
 complete. If the task is designed to run via an 'until' condition it will be
 marked as complete after its task has been cancelled.
 
+Quick Start
+-----------
 
+    git clone https://github.com/juju-solutions/matrix.git
+    cd matrix/
+    tox
+    .tox/py35/bin/matrix tests/test_prog
+
+When you update the branch remove the .tox directory and re-run tox
+
+    git pull
+    rm -rf ./tox
+    tox
+    .tox/py35/bin/matrix tests/test_prog
