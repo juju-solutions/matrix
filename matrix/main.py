@@ -4,12 +4,9 @@ import logging
 import logging.config
 from pathlib import Path
 
-import urwid
-
 from .bus import Bus, set_default_bus
 from . import config
 from . import rules
-from .view import TUIView, RawView, NoopViewController, palette
 
 
 def configLogging(options):
@@ -53,11 +50,6 @@ def setup(matrix, args=None):
     return options
 
 
-def unhandled(key):
-    if key == "ctrl c":
-        raise urwid.ExitMainLoop()
-
-
 def main(args=None):
     loop = asyncio.get_event_loop()
     bus = Bus(loop=loop)
@@ -68,23 +60,8 @@ def main(args=None):
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
 
-    if options.skin == "tui":
-        screen = urwid.raw_display.Screen()
-        view = TUIView(bus, screen)
-        view_controller = urwid.MainLoop(
-            view.widgets,
-            palette,
-            screen=screen,
-            event_loop=urwid.AsyncioEventLoop(loop=loop),
-            unhandled_input=unhandled)
-    else:
-        view = RawView(bus)
-        view_controller = NoopViewController()
-
     try:
-        view_controller.start()
         loop.create_task(matrix())
         loop.run_forever()
     finally:
-        view_controller.stop()
         loop.close()

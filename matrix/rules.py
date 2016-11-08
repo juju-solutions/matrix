@@ -3,15 +3,18 @@ import fnmatch
 import functools
 import io
 import logging
+import sys
 import traceback
 import yaml
 
 import attr
 import petname
 import juju.model
+import urwid
 
 from . import model
-from .model import RUNNING, COMPLETE, PAUSED
+from .model import RUNNING, PAUSED
+from .view import TUIView, RawView, NoopViewController, palette
 
 
 log = logging.getLogger("matrix")
@@ -327,8 +330,10 @@ class RuleEngine:
             log.debug(exc_ctx["message"])
             e = exc_ctx.get("exception")
             if e:
-                log.warn("\n".join(
-                    traceback.format_exception(type(e), e, e.__traceback__)))
+                if not isinstance(e, (
+                    urwid.ExitMainLoop, KeyboardInterrupt)):
+                    log.warn("Top Level Exception Handler", exc_info=e)
+                sys.exit()
 
         if self._reported:
             return
@@ -348,7 +353,21 @@ class RuleEngine:
         context = self.load_suite(self.config_file)
         reporter = functools.partial(self.exception_handler, context)
         self.loop.set_exception_handler(reporter)
+        if self.skin == "tui":
+            screen = urwid.raw_display.Screen()
+            view = TUIView(self.bus, context, screen=screen)
+            view_controller = urwid.MainLoop(
+                view,
+                palette,
+                screen=screen,
+                event_loop=urwid.AsyncioEventLoop(loop=self.loop),
+                unhandled_input=view.input_handler)
+        else:
+            view = RawView(self.bus, context)
+            view_controller = NoopViewController()
+
         try:
+            view_controller.start()
             # TODO: Create model per test, or model per suite
             await context.juju_model.connect_current()
             context.juju_model.add_observer(self.model_change)
@@ -357,4 +376,5 @@ class RuleEngine:
             await context.juju_model.disconnect()
             # Wait for any unprocessed events before exiting the loop
             await btask
+            view_controller.stop()
             self.loop.stop()
