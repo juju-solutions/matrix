@@ -405,6 +405,7 @@ class TUIView(View):
             self.tests[name]["result"] = e.payload['result']
             self.tests[name]["stop"] = e.time
             self.add_log("-" * 78)
+            self.tasks.clear()
         elif e.kind == "test.finish":
             pass
 
