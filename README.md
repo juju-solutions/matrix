@@ -25,7 +25,7 @@ Quick Start
     git clone https://github.com/juju-solutions/matrix.git
     cd matrix/
     tox
-    . .tox.py35/bin/activate
+    . .tox/py35/bin/activate
     matrix tests/test_prog
 
 When you update the branch remove the .tox directory and re-run tox
@@ -33,7 +33,7 @@ When you update the branch remove the .tox directory and re-run tox
     git pull
     deactivate ## if in a tox virtualenv already
     tox -r 
-    . .tox.py35/bin/activate
+    . .tox/py35/bin/activate
     matrix tests/test_prog
 
 
