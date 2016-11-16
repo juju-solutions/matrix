@@ -470,7 +470,8 @@ class XUnitView(View):
         top = Element("testsuites")
         testsuite = SubElement(top, "testsuite", {
             "name": "matrix",
-            "tests": "{}".format(len(self.results)),
+            "tests": str(len(self.results)),
+            "failures": str(len([r for r in self.results if not r["result"]])),
         })
         for test in self.results:
             testcase = SubElement(testsuite, "testcase", {
