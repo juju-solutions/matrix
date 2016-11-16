@@ -3,6 +3,7 @@ import collections
 import datetime
 import logging
 import os
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 import urwid
 
@@ -424,6 +425,61 @@ class RawView(View):
                 print("{:18} {}".format(
                     test.name, TEST_SYMBOLS[self.results[test.name]][1]))
             self.bus.shutdown()
+
+
+class XUnitView(View):
+    def __init__(self, bus, filename):
+        self.filename = filename
+        self.results = []
+        self.current_test = None
+        super().__init__(bus)
+
+    def subscribe(self):
+        self.bus.subscribe(self.start_test, eq("test.start"))
+        self.bus.subscribe(self.record_output, eq("logging.message"))
+        self.bus.subscribe(self.record_result, eq("test.complete"))
+        self.bus.subscribe(self.write_report, eq("test.finish"))
+
+    def start_test(self, e):
+        test = e.payload
+        deploy_entity = None
+        for rule in test.rules:
+            if rule.action.command.endswith('.deploy'):
+                deploy_entity = rule.action.args['entity']
+        self.current_test = {
+            "name": "{}: {}".format(deploy_entity, test.name),
+            "result": None,
+            "output": [],
+            "errors": [],
+        }
+
+    def record_output(self, e):
+        if self.current_test:
+            self.current_test["output"].append(e.payload.output)
+            if e.payload.levelname == "ERROR":
+                self.current_test["errors"].append(e.payload.output)
+
+    def record_result(self, e):
+        self.current_test["result"] = e.payload["result"]
+        self.results.append(self.current_test)
+
+    def write_report(self, e):
+        top = Element("testsuites")
+        testsuite = SubElement(top, "testsuite", {
+            "name": "matrix",
+            "tests": "{}".format(len(self.results)),
+        })
+        for test in self.results:
+            testcase = SubElement(testsuite, "testcase",
+                                  {"name": test["name"]})
+            if not test["result"]:
+                errorelement = SubElement(testcase, "failure", {
+                    "message": "\n".join(test["errors"]),
+                })
+                errorelement.text = "\n".join(test["output"])
+
+        with open(self.filename, "wb") as fp:
+            fp.write(tostring(top, encoding="utf-8"))
 
 
 class NoopViewController:
