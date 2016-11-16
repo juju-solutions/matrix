@@ -3,6 +3,7 @@ import collections
 import datetime
 import logging
 import os
+from time import time
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 import urwid
@@ -451,6 +452,7 @@ class XUnitView(View):
             "result": None,
             "output": [],
             "errors": [],
+            "start_time": time(),
         }
 
     def record_output(self, e):
@@ -461,6 +463,7 @@ class XUnitView(View):
 
     def record_result(self, e):
         self.current_test["result"] = e.payload["result"]
+        self.current_test["end_time"] = time()
         self.results.append(self.current_test)
 
     def write_report(self, e):
@@ -470,8 +473,10 @@ class XUnitView(View):
             "tests": "{}".format(len(self.results)),
         })
         for test in self.results:
-            testcase = SubElement(testsuite, "testcase",
-                                  {"name": test["name"]})
+            testcase = SubElement(testsuite, "testcase", {
+                "name": test["name"],
+                "time": str(test["end_time"] - test["start_time"]),
+            })
             if not test["result"]:
                 errorelement = SubElement(testcase, "failure", {
                     "message": "\n".join(test["errors"]),
