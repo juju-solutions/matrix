@@ -1,17 +1,8 @@
 from datetime import timedelta, datetime
 
-from .glitch import glitch  # noqa
 
-
-async def deploy(context, rule, action, event=None):
-    rule.log.info("Deploying %s", action.args['entity'])
-    context.apps.extend(await context.juju_model.deploy(action.args['entity']))
-    rule.log.info("Deploy COMPLETE")
-    return True
-
-
-async def health(context, rule, action, event=None):
-    stable_period = timedelta(seconds=action.args.get('stability_period', 30))
+async def health(context, rule, task, event=None):
+    stable_period = timedelta(seconds=task.args.get('stability_period', 30))
     errored_apps = []
     busy_apps = []
     errored_units = []

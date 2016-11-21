@@ -50,7 +50,7 @@ def select(model, selectors, objects=None, resolver=default_resolver):
     return cur
 
 
-async def glitch(context, rule, action, event=None):
+async def glitch(context, rule, task, event=None):
     """
     Perform a set of actions against a model, with a mind toward causing
     trouble.

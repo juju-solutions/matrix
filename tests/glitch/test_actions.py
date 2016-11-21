@@ -1,9 +1,10 @@
 import unittest
 
-from matrix.plugins.glitch.actions import _Actions
+from matrix.tasks.glitch.actions import _Actions
 
 
-class FauxActions(_Actions): pass
+class FauxActions(_Actions):
+    pass
 
 
 class TestAction(unittest.TestCase):

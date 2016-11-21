@@ -1,6 +1,6 @@
 import unittest
 
-from matrix.plugins.glitch.selectors import selector, Selectors
+from matrix.tasks.glitch.selectors import selector, Selectors
 
 from enforce.exceptions import RuntimeTypeError
 
