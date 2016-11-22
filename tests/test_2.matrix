@@ -4,33 +4,33 @@
   "description": Deploy with Glitches
   "rules":
     - "do":
-        "action": matrix.plugins.actions.deploy
+        "task": matrix.tasks.deploy
         "entity": "cs:bundle/wiki-simple"
         "version": current
     - "after": deploy
       "periodic": 5
       "do":
-        "action": matrix.plugins.actions.health
+        "task": matrix.tasks.health
       "until": glitch.complete
     - "after": health.status.healthy
       "do":
-        "action": matrix.plugins.actions.glitch
+        "task": matrix.tasks.glitch
 - "name": traffic
   "description": Traffic in the face of Chaos
   "rules":
     - "do":
-        "action": matrix.plugins.actions.deploy
+        "task": matrix.tasks.deploy
         "entity": "cs:bundle/wiki-simple"
         "version": current
     - "after": deploy
       "periodic": 5
       "do":
-        "action": matrix.plugins.actions.health
+        "task": matrix.tasks.health
       "until": glitch.complete
     - "after": health.status.healthy
       "do":
-        "action": matrix.plugins.actions.glitch
+        "task": matrix.tasks.glitch
     - "after": health.status.healthy
       "do":
-        "action": tests.traffic.test_traffic
+        "task": tests.traffic.test_traffic
       "until": glitch.complete

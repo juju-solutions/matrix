@@ -4,4 +4,4 @@ tests:
   description: Glitch an already deployed bundle
   rules:
     - do:
-        action: matrix.plugins.glitch.glitch
+        action: matrix.tasks.glitch
