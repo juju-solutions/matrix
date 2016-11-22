@@ -34,3 +34,22 @@ tests:
       periodic: 5
       until: test_traffic.complete
       after: deploy
+- name: test run_action
+  description: Test run_action
+  rules:
+    - do:
+        task: matrix.tasks.deploy
+        entity: cs:bundle/beats-core
+        version: current
+    - do:
+        task: matrix.tasks.health
+      periodic: 5
+      until: run_action.complete
+      after: deploy
+    - do:
+        task: matrix.tasks.run_action
+        application: kibana
+        action: load-dashboard
+        params:
+          dashboard: beats
+      after: health.status.healthy
