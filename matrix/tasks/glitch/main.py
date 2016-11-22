@@ -21,7 +21,7 @@ def default_resolver(model, kind, name):
     return obj
 
 
-def select(model, selectors, objects=None, resolver=default_resolver):
+async def select(rule, model, selectors, objects=None, resolver=default_resolver):
     if not selectors:
         if objects is None:
             raise ValueError('No valid objects specified by selectors')
@@ -31,7 +31,7 @@ def select(model, selectors, objects=None, resolver=default_resolver):
     # example) we must resolve them relative to the current model. This is
     # pluggable using a resolver object which takes a model,
     cur = None
-    args = [model]
+    args = [rule, model]
     # This can raise many an exception
     for selector in selectors:
         data = selector.copy()
@@ -43,10 +43,10 @@ def select(model, selectors, objects=None, resolver=default_resolver):
                 if o is not None:
                     data[k] = o
 
-        cur = m(*args, **data)
+        cur = await m(*args, **data)
         if len(cur) < 1:  # If we get an empty list ...
             return cur  # ... return it, and skip the rest.
-        args = [model, cur]
+        args = [rule, model, cur]
     return cur
 
 
@@ -71,7 +71,10 @@ async def glitch(context, rule, task, event=None):
             glitch_plan = validate_plan(yaml.load(f))
         rule.log.info("loaded glitch plan from {}".format(config.glitch_plan))
     else:
-        glitch_plan = generate_plan(model, num=int(config.glitch_num))
+        glitch_plan = await generate_plan(
+            rule,
+            model,
+            num=int(config.glitch_num))
         glitch_plan = validate_plan(glitch_plan)
 
         rule.log.info("Writing glitch plan to {}".format(config.glitch_output))
@@ -83,7 +86,7 @@ async def glitch(context, rule, task, event=None):
         actionf = Actions[action.pop('action')]['func']
         selectors = action.pop('selectors')
         # Find a set of units to act upon
-        objects = select(model, selectors)
+        objects = await select(rule, model, selectors)
         if not objects:
             # If we get an empty set of objects back, just skip this action.
             rule.log.error(
@@ -94,9 +97,6 @@ async def glitch(context, rule, task, event=None):
         # Run the specified action on those units
         rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
 
-        # TODO: better handle the case where we no longer have objects
-        # to select, due to too many of them being destroyed (most
-        # relevant for small bundles)
         await actionf(rule, model, objects, **action)
         context.bus.dispatch(
             origin="glitch",

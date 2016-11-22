@@ -95,7 +95,12 @@ async def add_unit(rule: Rule, model: Model, application: Application,
 async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
     """Kill the juju agent on a machine."""
 
-    await unit.run('sudo pkill jujud')
+    try:
+        await unit.run('sudo pkill jujud')
+    except AttributeError:
+        # We kill the juju agent, so we will get an Exception back
+        # from unit.run.
+        pass
 
 
 # TODO: implement these actions:

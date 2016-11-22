@@ -3,54 +3,67 @@ import random
 from .selectors import Selectors
 from .actions import Actions
 
+
 class InvalidPlan(Exception):
     pass
+
 
 class InvalidModel(Exception):
     pass
 
 
-_MODEL_OPS = {
-    'machine': {
-        'fetch': lambda model: [m for m in model.machines.values()],
-        'selectors': lambda m: [
-            {'selector': 'machines'}, {'selector': 'one'}],
-    },
-    'unit': {
-        'fetch': lambda model: [u for u in model.units.values()],
-        'selectors': lambda u: [
-            {'selector': 'units', 'application': u.application},
-            # TODO: handle leadership
-            {'selector': 'one'}
-        ]
-    },
-    'application': {
-        'fetch': lambda model: [a for a in model.applications.values()],
-        'selectors': lambda a: [
-            {'selector': 'applications'},
-            {'selector': 'one'}
-        ]
-    }
-}
+async def _fetch_machine(rule, model):
+    machines = [m for m in model.machines.values()]
+    if not machines:
+        raise InvalidModel("No machines in the model.")
+
+    machine = random.choice(machines)
+
+    selectors = [
+        {'selector': 'machines'},
+        {'selector': 'one'},
+    ]
+    return selectors
 
 
-def _fetch_objects(object_type, model):
-    try:
-        func = _MODEL_OPS[object_type]['fetch']
-    except KeyError:
-        raise InvalidPlan("Could not fetch objects of {}".format(object_type))
-    objects = func(model)
-    if not objects:
-        raise InvalidModel("No objects to test in the current model")
-    return objects
+async def _fetch_unit(rule, model):
+    units = [u for u in model.units.values()]
+    if not units:
+        raise InvalidModel("No units in the model.")
+
+    unit = random.choice(units)
+
+    leadership = await unit.is_leader_from_status()
+
+    selectors = [
+        {'selector': 'units', 'application': unit.application},
+        {'selector': 'leader', 'value': leadership},
+        {'selector': 'one'},
+    ]
+    return selectors
 
 
-def _implicit_selectors(object_type, obj):
-    try:
-        func = _MODEL_OPS[object_type]['selectors']
-    except KeyError:
-        raise InvalidPlan("Could not get implicit selectors for {}".format(object_type))
-    return func(obj)
+async def _fetch_application(rule, model):
+    apps = [a for a in model.applications.values()],
+
+    if not apps:
+        raise InvalidModel("No apps in the model.")
+    app = random.choice(apps)
+
+    selectors = [
+        {'selector': 'applications'},
+        {'selector': 'one'},
+    ]
+    return selectors
+
+
+async def fetch(rule, object_type, model):
+    if object_type == 'machine':
+        return await _fetch_machine(rule, model)
+    if object_type == 'unit':
+        return await _fetch_unit(rule, model)
+    if object_type == 'application':
+        return await _fetch_application(rule, model)
 
 
 def validate_plan(plan):
@@ -72,7 +85,7 @@ def validate_plan(plan):
     return plan
 
 
-def generate_plan(model, num):
+async def generate_plan(rule, model, num):
     '''
     Generate a test plan. The resultant plan, if written out to a
     .yaml file, would look something like the following:
@@ -104,9 +117,7 @@ def generate_plan(model, num):
         action = random.choice([a for a in Actions])
         obj_type = Actions[action]['type']
 
-        objects = _fetch_objects(obj_type, model)
-        obj = random.choice(objects)
-        selectors = _implicit_selectors(obj_type, obj)
+        selectors = await fetch(rule, obj_type, model)
 
         plan['actions'].append({'action': action, 'selectors': selectors})
 
