@@ -9,11 +9,14 @@ from juju.application import Application
 from juju.machine import Machine
 from juju.unit import Unit
 
+from matrix.model import Rule
 from matrix.utils import Singleton
 
 
 _marker = object()
 log = logging.getLogger("glitch")
+
+class SelectError(Exception): pass
 
 
 class _Selectors(dict, metaclass=Singleton):
@@ -36,7 +39,7 @@ selector = Selectors.decorate
 
 
 @selector
-def units(model: Model, application: Application=None) -> List[Unit]:
+async def units(rule: Rule, model: Model, application: Application=None):
     """
     Return units that are part of the specified application(s).
 
@@ -56,30 +59,37 @@ def units(model: Model, application: Application=None) -> List[Unit]:
 
 
 @selector
-def machines(model: Model) -> List[Machine]:
+async def machines(rule: Rule, model: Model):
     machines = [m for m in model.machines.values()]
     return machines
 
 
 @selector
-def applications(model: Model) -> List[Application]:
+async def applications(rule: Rule, model: Model):
     return [a for a in model.applications.values()]
 
 
-#@selector
-def leader(model: Model, units: List[Unit], value=True) -> List[Unit]:
+@selector
+async def leader(rule: Rule, model: Model, units: List[Unit], value=True):
     """
     Return just the units that are, or are not the leader, depending
     on whether 'value' is truthy or falsy.
 
-    TODO: fix this to actually check for leadership.
-
     """
-    return [u for u in units if u.is_leader is value]
+    passed = []
+
+    for unit in units:
+        if await unit.is_leader_from_status():
+            passed.append(unit)
+
+    # Return our list of leaders or not leaders. If value is True,
+    # this list should be of length one, but this selector does not
+    # take responsibility for checking for that.
+    return passed
 
 
 @selector
-def agent_status(model: Model, units: List[Unit], expect) -> List[Unit]:
+async def agent_status(rule: Rule, model: Model, units: List[Unit], expect):
     '''
     Return units with an agent status matching a string.
 
@@ -88,7 +98,7 @@ def agent_status(model: Model, units: List[Unit], expect) -> List[Unit]:
 
 
 @selector
-def workload_status(model: Model, units: List[Unit], expect=None) -> List[Unit]:
+async def workload_status(rule: Rule, model: Model, units: List[Unit], expect=None):
     """
     Return units with a workload status matching a string.
 
@@ -97,7 +107,7 @@ def workload_status(model: Model, units: List[Unit], expect=None) -> List[Unit]:
 
 
 @selector
-def health(units: List[Unit]):
+async def health(units: List[Unit]):
     """"
     Placeholder for eventual health check selector.
 
@@ -106,16 +116,13 @@ def health(units: List[Unit]):
 
 
 @selector
-def one(model: Model, objects: List[Any]) -> List[Any]:
+async def one(rule: Rule, model: Model, objects: List[Any]):
     """
     Return just one of a set of units.
 
     The theory is that, whenever we call this, any of the units will
     do, so we select a unit at rmandom, to avoid biases introduced by
     just selecting the first unit in the list.
-
-    # TODO: it looks like this can except an empty list. Need to
-    # refactor to hanle that.
 
     """
     return [random.choice(objects)]

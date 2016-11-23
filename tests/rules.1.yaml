@@ -3,18 +3,18 @@ tests:
   description: Traffic in the face of Chaos
   rules:
     - do:
-        action: matrix.plugins.actions.deploy
+        task: matrix.tasks.deploy
         entity: cs:bundle/wiki-simple
         version: current
     - do:
-        action: tests.traffic.test_traffic
+        task: tests.traffic.test_traffic
       until: chaos.complete
       after: health.status.healthy
     - do:
-        action: tests.chaos.chaos
+        task: tests.chaos.chaos
       while: test_traffic
     - do:
-        action: matrix.plugins.actions.health
+        task: matrix.tasks.health
       periodic: 5
       until: chaos.complete
       after: deploy
@@ -22,15 +22,34 @@ tests:
   description: Traffic on the deploy
   rules:
     - do:
-        action: matrix.plugins.actions.deploy
+        task: matrix.tasks.deploy
         entity: cs:bundle/wiki-simple
         version: current
     - do:
-        action: tests.traffic.test_traffic
+        task: tests.traffic.test_traffic
         duration: 12
       after: health.status.healthy
     - do:
-        action: matrix.plugins.actions.health
+        task: matrix.tasks.health
       periodic: 5
       until: test_traffic.complete
       after: deploy
+- name: test run_action
+  description: Test run_action
+  rules:
+    - do:
+        task: matrix.tasks.deploy
+        entity: cs:bundle/beats-core
+        version: current
+    - do:
+        task: matrix.tasks.health
+      periodic: 5
+      until: run_action.complete
+      after: deploy
+    - do:
+        task: matrix.tasks.run_action
+        application: kibana
+        action: load-dashboard
+        params:
+          dashboard: beats
+      after: health.status.healthy

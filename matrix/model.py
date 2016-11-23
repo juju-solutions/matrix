@@ -53,8 +53,8 @@ class Context:
     states = attr.ib(init=False, default=attr.Factory(dict))
     # Top level config
     config = attr.ib(repr=False)
-    # Resolve rule.action handlers
-    actions = attr.ib(default=attr.Factory(dict), repr=False, init=False)
+    # Resolve rule.task handlers
+    tasks = attr.ib(default=attr.Factory(dict), repr=False, init=False)
     # Task cancellation callbacks
     # XXX: use an event for this?
     waiters = attr.ib(default=attr.Factory(dict), repr=False, init=False)
@@ -85,7 +85,7 @@ class Context:
 
 
 @attr.s
-class Action:
+class Task:
     command = attr.ib(convert=str)
     args = attr.ib(default=attr.Factory(dict))
 
@@ -98,7 +98,7 @@ class Action:
 
     def resolve(self, context):
         resolved = False
-        cmd = context.actions.get(self.command)
+        cmd = context.tasks.get(self.command)
         if cmd is not None:
             return cmd
         cmd = None
@@ -118,7 +118,7 @@ class Action:
                 # This will throw ImportError on failure
                 cmd = utils.resolve_dotpath(cmd)
                 resolved = True
-        context.actions[self.name] = cmd
+        context.tasks[self.name] = cmd
         log.debug("Resolved %s to %s", self.command, cmd)
         return cmd
 
@@ -130,7 +130,7 @@ class Action:
         # additionally passing the event itself.
         # XXX: this changes the call signature from other types of
         # plugins, maybe that additionally needs kwargs
-        # call sig: callback(context, rule, action, event)
+        # call sig: callback(context, rule, task, event)
         cmd = self.resolve(context)
         async def event_wrapper(event):
             if isinstance(cmd, Path):
@@ -152,8 +152,8 @@ class Action:
         cmd = self.resolve(context)
         if not cmd:
             raise ValueError(
-                    "Unable to resolve action %s for rule %s",
-                    rule.action, rule)
+                    "Unable to resolve task %s for rule %s",
+                    rule.task, rule)
         result = False
         try:
             if isinstance(cmd, Path):
@@ -165,8 +165,8 @@ class Action:
             result = True
             log.debug("Cancelled %s", rule.name)
         except Exception:
-            log.warn("Error in %s's action %s",
-                     rule, rule.action, exc_info=True)
+            log.warn("Error in %s's task %s",
+                     rule, rule.task, exc_info=True)
             raise
 
         return result
@@ -212,7 +212,7 @@ class Action:
                 rule.log.debug(stderr.decode('utf-8'))
             result = p.returncode is 0
         except FileNotFoundError:
-            log.warn("Action: {} not on path: {}".format(
+            log.warn("Task: {} not on path: {}".format(
                 self.cmd, path))
         return result
 
@@ -289,12 +289,12 @@ class Condition:
 
 @attr.s
 class Rule:
-    action = attr.ib()
+    task = attr.ib()
     conditions = attr.ib(default=attr.Factory(list))
 
     @property
     def name(self):
-        return self.action.name
+        return self.task.name
 
     @property
     def log(self):
@@ -336,9 +336,9 @@ class Rule:
         return r[0]
 
     async def setup_event(self,  context):
-        result = await self.action.setup_event(context, self)
+        result = await self.task.setup_event(context, self)
         return result
 
     async def execute(self, context):
-        result = await self.action.execute(context, self)
+        result = await self.task.execute(context, self)
         return result

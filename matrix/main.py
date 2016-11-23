@@ -36,6 +36,8 @@ def setup(matrix, args=None):
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
     parser.add_argument("-s", "--skin", choices=("tui", "raw"), default="tui")
+    parser.add_argument("-x", "--xunit", default=None, metavar='FILENAME',
+                        help="Create an XUnit report file")
     parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
@@ -60,6 +62,8 @@ def main(args=None):
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
 
+    if options.xunit:
+        xunit = XUnitView(bus, options.xunit)  # noqa
     try:
         loop.create_task(matrix())
         loop.run_forever()

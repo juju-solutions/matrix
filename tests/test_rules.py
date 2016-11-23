@@ -12,7 +12,7 @@ def loader(name):
 def test_parser():
     s = rules.load_suite(loader("rules.1.yaml").open())
     # Suite should have one test with 3 rules
-    assert len(s) == 2
+    assert len(s) == 3
     assert len(s[0].rules) == 4
 
 

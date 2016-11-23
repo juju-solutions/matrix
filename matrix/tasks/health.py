@@ -1,25 +1,19 @@
 from datetime import timedelta, datetime
 
-from .glitch import glitch  # noqa
 
-
-async def deploy(context, rule, action, event=None):
-    rule.log.info("Deploying %s", action.args['entity'])
-    context.apps.extend(await context.juju_model.deploy(action.args['entity']))
-    rule.log.info("Deploy COMPLETE")
-    return True
-
-
-async def health(context, rule, action, event=None):
-    stable_period = timedelta(seconds=action.args.get('stability_period', 30))
+async def health(context, rule, task, event=None):
+    if not context.apps:
+        return True
+    stable_period = timedelta(seconds=task.args.get('stability_period', 30))
     errored_apps = []
     busy_apps = []
     errored_units = []
     busy_units = []
+    settling_units = []
     for app in context.apps:
         if app.status == 'error':
             errored_apps.append(app)
-        elif app.status not in ('active', 'unknown'):
+        elif app.status not in ('active', 'unknown', ''):
             busy_apps.append(app)
         for unit in app.units:
             now = datetime.utcnow()
@@ -28,12 +22,14 @@ async def health(context, rule, action, event=None):
             workload_status_duration = now - unit.workload_status_since
             workload_busy = workload_status_duration < stable_period
             unit_busy = agent_busy or workload_busy
+            agent_idle = unit.agent_status == 'idle'
+            workload_ready = unit.workload_status in ('active', 'unknown')
 
             if unit.workload_status == 'error':
                 errored_units.append(unit)
-            elif (unit_busy or
-                  unit.agent_status != 'idle' or
-                  unit.workload_status not in ('active', 'unknown')):
+            elif workload_ready and agent_idle and unit_busy:
+                settling_units.append(unit)
+            elif not workload_ready or not agent_idle or unit_busy:
                 busy_units.append(unit)
 
     if errored_apps or errored_units:
@@ -41,6 +37,9 @@ async def health(context, rule, action, event=None):
     elif (busy_apps or busy_units) and \
             context.states.get('health.status') != 'healthy':
         result = 'busy'
+    elif settling_units and \
+            context.states.get('health.status') != 'healthy':
+        result = 'settling'
     else:
         result = 'healthy'
 
