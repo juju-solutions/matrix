@@ -429,7 +429,6 @@ class TUIView(View):
             self.frame.body = urwid.LineBox(self.timeline, "Timeline")
         else:
             self.frame.body = self.pile
-        self.frame._modified()
 
     def populate_timeline(self, e):
         self.timeline.update(str(e.payload))
