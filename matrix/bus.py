@@ -3,7 +3,6 @@ import logging
 import sys
 import uuid
 from pathlib import Path
-from types import FunctionType
 
 import attr
 
@@ -11,6 +10,19 @@ from .model import Event
 
 log = logging.getLogger("bus")
 _marker = object()
+
+
+# Condition helpers
+def eq(expected):
+    def _eq(e):
+        return e.kind == expected
+    return _eq
+
+
+def prefixed(expected):
+    def _prefixed(e):
+        return e.kind.startswith(expected)
+    return _prefixed
 
 
 class Bus:
@@ -80,9 +92,6 @@ class Bus:
                 if until_complete is True:
                     break
             event = await self.__queue.get()
-            if event is _marker:
-                log.debug("Exiting Bus with shutdown event")
-                break
             evt_ct += 1
             # Now push the event to subscribers
             applied = False
@@ -133,6 +142,11 @@ class Bus:
             if not applied:
                 log.debug("Unhandled event %s %d", event, evt_ct)
 
+            if event.kind == "shutdown":
+                log.debug("Exiting Bus with shutdown event")
+                break
+
+
             # Track the event after it has been applied
             if self.__queue.qsize() == 0:
                 if until_complete is True or self.should_run is False:
@@ -142,7 +156,7 @@ class Bus:
     def shutdown(self):
         self.should_run = False
         # Pushing a marker will force queue.get to return
-        self.__queue.put_nowait(_marker)
+        self.dispatch(kind="shutdown")
 
 default_bus = None
 

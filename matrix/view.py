@@ -6,6 +6,7 @@ import os
 
 import urwid
 
+from .bus import eq, prefixed
 from .model import PENDING, RUNNING, PAUSED, COMPLETE
 
 log = logging.getLogger("view")
@@ -162,7 +163,16 @@ class View(urwid.WidgetWrap):
         self.screen = screen
         self._w = self.build_ui()
         self.subscribe()
-        self.input_mode = "default"
+        self._input_mode = "default"
+
+    @property
+    def input_mode(self):
+        return self._input_mode
+
+    @input_mode.setter
+    def input_mode(self, value):
+        self.bus.dispatch(kind="ui.change", payload=value)
+        self._input_mode = value
 
     def build_ui(self):
         pass
@@ -177,18 +187,6 @@ class View(urwid.WidgetWrap):
 class SelectableText(urwid.Edit):
     def valid_char(self, ch):
         return False
-
-
-def eq(expected):
-    def _eq(e):
-        return e.kind == expected
-    return _eq
-
-
-def prefixed(expected):
-    def _prefixed(e):
-        return e.kind.startswith(expected)
-    return _prefixed
 
 
 def chop_microseconds(delta):
@@ -310,22 +308,38 @@ class TUIView(View):
         #  Timeline widget
         self.timeline = Lines(self.context.timeline)
         self.bus.subscribe(self.populate_timeline,  eq("state.change"))
+        self.bus.subscribe(self.populate_timeline,  eq("model.change"))
+
+        # Footer
+        self.control_bar = urwid.Text("")
+        self.frame.footer = self.control_bar
+        self.bus.subscribe(self.show_keymap, eq("ui.change"))
+        # Mutating this property sets up the UI as well
+        self.input_mode = "default"
         return self.frame
 
-    def resolve_input(self, ch):
+    def show_keymap(self, e):
+        kbmaps = self.resolve_input_map()
+        output = ["{}: {} ".format(k, v) for (k, v) in kbmaps.items() if not k.startswith("_")]
+        self.control_bar.set_text(output)
+
+    def resolve_input_map(self):
         mode = self.input_mode
-        kbmaps = []
         master = False
         m = self.KEY_MAP.get(mode)
+        kbmap = collections.ChainMap(m)
         if m:
-            kbmaps.append(m)
+            kbmap = kbmap.new_child(m)
             if m.get("_master", False) is True:
                 master = True
         if not m and mode != "default" and not master:
-            kbmaps.append(self.KEY_MAP["default"])
-        for kb in kbmaps:
-            if ch in kb:
-                return kb[ch]
+            kbmap = kbmap.new_child(self.KEY_MAP["default"])
+        return kbmap
+
+    def resolve_input(self, ch):
+        kbmap = self.resolve_input_map()
+        if ch in kbmap:
+            return kbmap[ch]
         return None
 
     def keypress(self, size, ch):
@@ -348,7 +362,6 @@ class TUIView(View):
     def quitter(self, ch):
         self.running = False
         self.bus.shutdown()
-        raise urwid.ExitMainLoop()
 
     async def watch_juju_status(self):
         while self.running:
@@ -403,23 +416,10 @@ class TUIView(View):
             self.tests[name]["result"] = e.payload['result']
             self.tests[name]["stop"] = e.time
             self.add_log("-" * 78)
+            self.tasks.clear()
         elif e.kind == "test.finish":
             pass
 
-            # def quit_handler(ctx):
-                # self.running = False
-                # ctx.bus.shutdown()
-
-            # def timeline_view(ctx, e):
-                # ctx.show_timeline(e)
-
-            # control_bar = ControlBar("t for timeline, q to quit")
-            # control_bar.configure({
-                # 'q': (quit_handler, self, ()),
-                # 't': (timeline_view, self, (e,)),
-                # })
-            # self.frame.footer = control_bar
-            # self.frame.focus_position = "footer"
         self.test_walker._modified()
 
     def toggle_timeline(self, ch):
@@ -427,9 +427,10 @@ class TUIView(View):
             self.frame.body = urwid.LineBox(self.timeline, "Timeline")
         else:
             self.frame.body = self.pile
+        self.frame._modified()
 
     def populate_timeline(self, e):
-        self.timeline.update(e.payload)
+        self.timeline.update(str(e.payload))
 
     def add_log(self, msg):
         self.status.update(msg)
