@@ -5,7 +5,6 @@ import io
 import logging
 from pathlib import Path
 import sys
-import traceback
 import yaml
 
 import attr
@@ -13,6 +12,7 @@ import petname
 import juju.model
 import urwid
 
+from .bus import eq
 from . import model
 from .model import RUNNING, PAUSED
 from . import utils
@@ -127,12 +127,19 @@ def load_suites(filenames, factory=Suite):
     return rules
 
 
+class ShutdownException(Exception):
+    "Indicate we need to shut down processing"
+    pass
+
+
 class RuleEngine:
     def __init__(self, bus):
         self.loop = bus.loop
         self.bus = bus
-
+        self._exc = None
+        self.jobs = []
         self._reported = False
+        self._should_run = True
 
     def load_suite(self):
         filenames = []
@@ -200,7 +207,10 @@ class RuleEngine:
                 cancelled = True
                 break
 
-        while True:
+        if not self._should_run:
+            raise ShutdownException
+
+        while self._should_run:
             try:
                 rule.lifecycle(context, RUNNING)
 
@@ -270,11 +280,11 @@ class RuleEngine:
                 kind="test.start",
                 payload=test,
                 origin="matrix")
-        runners = []
+        self.jobs.clear()
         for rule in test.rules:
             task = self.loop.create_task(
                     self.rule_runner(rule, context))
-            runners.append(task)
+            self.jobs.append(task)
             untils = rule.select("until")
             if untils:
                 # The rule should terminate when a state is set, we want this
@@ -293,7 +303,7 @@ class RuleEngine:
         # rule_runner will run each rule to completion
         # (either success or failure) and then terminate here
         done, pending = await asyncio.wait(
-                runners, loop=self.loop,
+                self.jobs, loop=self.loop,
                 return_when=asyncio.FIRST_EXCEPTION)
         if pending:
             # We terminated with things still running
@@ -328,6 +338,8 @@ class RuleEngine:
         self.bus.subscribe(context.timeline.append,
                            allow_event)
 
+        self.bus.subscribe(self.handle_shutdown, eq("shutdown"))
+
         # reduce the test set to those matching pattern
         suite = []
         for t in context.suite:
@@ -351,15 +363,32 @@ class RuleEngine:
                 payload=context
         )
 
+    def handle_shutdown(self, event):
+        self._should_run = False
+        if self.jobs:
+            # Cleanup any running jobs
+            for job in self.jobs:
+                log.debug("Cancelling %s", job)
+                if not job.done():
+                    job.cancel()
+
     def exception_handler(self, context, loop=None, exc_ctx=None):
         if exc_ctx:
             log.debug(exc_ctx["message"])
             e = exc_ctx.get("exception")
             if e:
                 if not isinstance(e, (
-                    urwid.ExitMainLoop, KeyboardInterrupt)):
+                        urwid.ExitMainLoop, KeyboardInterrupt)):
+                    log.debug("%s", exc_ctx)
                     log.warn("Top Level Exception Handler", exc_info=e)
-                sys.exit()
+                    self._exc = sys.exc_info()
+                    if self.jobs:
+                        # Cleanup any running jobs
+                        for job in self.jobs:
+                            log.debug("Cancelling %s", job)
+                            if not job.done():
+                                job.cancel()
+                raise e
 
         if self._reported:
             return
@@ -404,4 +433,7 @@ class RuleEngine:
             # Wait for any unprocessed events before exiting the loop
             await btask
             view_controller.stop()
-            self.loop.stop()
+        self.loop.stop()
+        if self._exc and not isinstance(self._exc, ShutdownException):
+            raise self._exc[0](self._exc[1]).with_traceback(self._exc[2])
+
