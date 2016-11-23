@@ -24,8 +24,10 @@ async def health(context, rule, task, event=None):
             unit_busy = agent_busy or workload_busy
             agent_idle = unit.agent_status == 'idle'
             workload_ready = unit.workload_status in ('active', 'unknown')
+            workload_error = unit.workload_status == 'error'
+            agent_error = unit.agent_status in ('error', 'failed')
 
-            if unit.workload_status == 'error':
+            if workload_error or agent_error:
                 errored_units.append(unit)
             elif workload_ready and agent_idle and unit_busy:
                 settling_units.append(unit)

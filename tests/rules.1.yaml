@@ -18,6 +18,9 @@ tests:
       periodic: 5
       until: chaos.complete
       after: deploy
+    - after: chaos.complete
+      do:
+        task: matrix.tasks.reset
 - name: just-traffic
   description: Traffic on the deploy
   rules:
@@ -53,3 +56,6 @@ tests:
         params:
           dashboard: beats
       after: health.status.healthy
+    - after: run_action.complete
+      do:
+        task: matrix.tasks.reset
