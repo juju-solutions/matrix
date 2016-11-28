@@ -2,7 +2,6 @@ import asyncio
 import collections
 import datetime
 import logging
-import os
 from time import time
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -261,18 +260,11 @@ class TUIView(View):
         self.bus.subscribe(self.show_log, eq("logging.message"))
 
         self.running = True
-        self.model = []
-        self.model_walker = SimpleListRenderWalker(self.model)
-        self.model_view = urwid.ListBox(self.model_walker)
-        # Ideally libjuju provides something like this
-        self.model_watcher = asyncio.get_event_loop().create_task(
-                self.watch_juju_status())
+        self.model_view = urwid.Terminal(['watch', '--color', '--',
+                                          'juju', 'status', '--color=true'])
 
-        self.debug = collections.deque([], 200)
-        self.debug_walker = SimpleListRenderWalker(self.debug)
-        self.debug_view = urwid.ListBox(self.debug_walker)
-        self.debug_watcher = asyncio.get_event_loop().create_task(
-                self.debug_juju_log())
+        self.debug_view = urwid.Terminal(['juju', 'debug-log',
+                                          '--color=true', '--tail'])
 
         widgets.append(("weight", 2, urwid.Columns([
             urwid.LineBox(self.status_view, "Status Log"),
@@ -287,36 +279,6 @@ class TUIView(View):
                 header=urwid.Text("Matrix Test Runner"),
                 body=body)
         return self.frame
-
-    async def watch_juju_status(self):
-        while self.running:
-            p = await asyncio.create_subprocess_shell(
-                    "juju status --color=false",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env={"PATH": os.environ.get("PATH"),
-                         "HOME": os.environ.get("HOME")}
-                    )
-            stdout, stderr = await p.communicate()
-            output = stdout.decode('utf-8')
-            self.model.clear()
-            self.model.extend(output.splitlines())
-            self.model_walker._modified()
-            await asyncio.sleep(2.0)
-
-    async def debug_juju_log(self):
-        p = await asyncio.create_subprocess_shell(
-                    "juju debug-log --color=false --tail",
-                    stdout=asyncio.subprocess.PIPE,
-                    env={"PATH": os.environ.get("PATH"),
-                         "HOME": os.environ.get("HOME")}
-                    )
-        while self.running and not p.returncode:
-            data = await p.stdout.readline()
-            output = data.decode('utf-8').rstrip()
-            self.debug_walker.update(output, -1)
-        if not p.returncode:
-            p.kill()
 
     def handle_tests(self, e):
         name = ""
