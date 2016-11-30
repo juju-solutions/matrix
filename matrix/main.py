@@ -11,6 +11,7 @@ from .bus import Bus, set_default_bus
 from . import config
 from . import rules
 from .view import TUIView, RawView, XUnitView, NoopViewController, palette
+from . import utils
 
 
 def configLogging(options):
@@ -36,16 +37,42 @@ def configLogging(options):
 
 def setup(matrix, args=None):
     parser = argparse.ArgumentParser(
+        formatter_class=utils.ParagraphDescriptionFormatter,
         description="Run a local bundle through a suite of tests to ensure "
                     "that it can handle the types of operations and failures "
                     "that are common for all deployments.",
         epilog="A default suite of tests will always be run, unless -D "
                "is given.  Additional suites can be passed in as "
                "arguments.  Additionally, the bundle will be checked for "
-               "a matrix.yaml file which will be included as an "
+               "a tests/matrix.yaml file which will be included as an "
                "additional suite if present.  All suites will be merged "
                "together, and suites containing tests with the same name as a "
-               "test in a previous suite will override that test.",
+               "test in a previous suite will override that test.\n"
+               "\n"
+               "Examples:\n"
+               "\n"
+               "    Run all normal tests (default suite and, if present, "
+               "./tests/matrix.yaml) on the bundle at ./:\n"
+               "\n"
+               "        $ matrix\n"
+               "\n"
+               "    Run only the default suite (ignore ./tests/matrix.yaml):\n"
+               "\n"
+               "        $ matrix -B\n"
+               "\n"
+               "    Run only ~/foo/tests/matrix.yaml on the bundle at ~/foo:\n"
+               "\n"
+               "        $ matrix -Dp ~/foo\n"
+               "\n"
+               "    Run all normal tests plus ./tests/matrix_extra.yaml on "
+               "the bundle at ./:\n"
+               "\n"
+               "        $ matrix tests/matrix_extra.yaml\n"
+               "\n"
+               "    Run only ./tests/matrix_extra.yaml:\n"
+               "\n"
+               "        $ matrix -DB tests/matrix_extra.yaml\n"
+               "\n",
     )
     parser.add_argument("-l", "--log-level", default=None)
     parser.add_argument("-L", "--log-name", nargs="*")

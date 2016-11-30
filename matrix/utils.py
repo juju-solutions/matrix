@@ -1,7 +1,9 @@
+import argparse
 import copy
 import logging
 import importlib
 import re
+import textwrap
 
 
 _marker = object()
@@ -126,3 +128,21 @@ class EventHandler(logging.Handler):
                     payload=record)
         except:
             self.handleError(record)
+
+
+class ParagraphDescriptionFormatter(argparse.HelpFormatter):
+    def _fill_text(self, text, width, indent):
+        lines = []
+        for line in text.splitlines():
+            if line.strip():
+                current_indent = indent
+                additional_indent = re.match(r'(\s+)(.*)', line)
+                if additional_indent:
+                    current_indent += additional_indent.group(1)
+                    line = additional_indent.group(2)
+                lines.extend(textwrap.wrap(line, width,
+                                           initial_indent=current_indent,
+                                           subsequent_indent=current_indent))
+            else:
+                lines.append(line)  # preserve blank lines
+        return '\n'.join(lines)
