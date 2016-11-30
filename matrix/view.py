@@ -7,7 +7,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 import urwid
 
-from .model import PENDING, RUNNING, PAUSED, COMPLETE
+from .model import PENDING
 
 log = logging.getLogger("view")
 
@@ -28,13 +28,6 @@ palette = [
 TEST_SYMBOLS = {
         True: ("pass", "\N{HEAVY CHECK MARK}"),
         False: ("fail", "\N{HEAVY BALLOT X}"),
-        }
-
-STATE_SYMBOLS = {
-        PENDING: ("default", PENDING),
-        PAUSED: ("default", PAUSED),
-        RUNNING: ("pass", RUNNING),
-        COMPLETE: ("pass", COMPLETE)
         }
 
 
