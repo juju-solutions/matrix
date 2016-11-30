@@ -1,15 +1,7 @@
-import atexit
 import copy
 import logging
 import importlib
-import os
 import re
-import shutil
-import tempfile
-import zipfile
-
-import aiohttp
-import aiofiles
 
 
 _marker = object()
@@ -44,7 +36,7 @@ class Singleton(type):
         return cls._instances[cls]
 
 
-def deepmerge(dest, src, merge_lists=False):
+def deepmerge(dest, src):
     """
     Deep merge of two dicts.
 
@@ -52,13 +44,35 @@ def deepmerge(dest, src, merge_lists=False):
     from `src` are passed through `copy.deepcopy`.
     """
     for k, v in src.items():
-        if isinstance(v, dict):
-            deepmerge(dest.setdefault(k, {}), v)
-        elif isinstance(v, list) and merge_lists:
-            dest.setdefault(k, []).extend(copy.deepcopy(vv) for vv in v)
+        if dest.get(k) and isinstance(v, dict):
+            deepmerge(dest[k], v)
         else:
             dest[k] = copy.deepcopy(v)
     return dest
+
+
+def merge_spec(old_spec, new_spec):
+    """
+    Merge a test suite spec by merging the list of tests.
+
+    The tests will be merged by name; if ``new_spec`` contains a test with
+    the same name as ``old_spec``, the test from ``new_spec`` will be used
+    instead.
+
+    Note that this is destructive, so ``old_spec`` will be modified in place.
+    """
+    old_by_name = {test['name']: test
+                   for test in old_spec['tests']
+                   if 'name' in test}
+    for new_test in new_spec['tests']:
+        if 'name' in new_test and new_test['name'] in old_by_name:
+            # test case exists in both (by name), so replace it
+            old_test = old_by_name[new_test['name']]
+            old_test.clear()
+            old_test.update(copy.deepcopy(new_test))
+        else:
+            # new test case, so add it
+            old_spec['tests'].append(new_test)
 
 
 class O(dict):
@@ -112,20 +126,3 @@ class EventHandler(logging.Handler):
                     payload=record)
         except:
             self.handleError(record)
-
-
-async def download_and_extract(archive_url, loop):
-    tmpdir = tempfile.mkdtemp()
-    atexit.register(shutil.rmtree, tmpdir)
-    archive_path = os.path.join(tmpdir, 'archive.zip')
-    async with aiofiles.open(archive_path, 'wb') as fb:
-        async with aiohttp.ClientSession(loop=loop) as session:
-            async with session.get(archive_url) as resp:
-                async for data in resp.content.iter_chunked(1024):
-                    if data:
-                        await fb.write(data)
-    with zipfile.ZipFile(archive_path, "r") as z:
-        await loop.run_in_executor(z.extractall, tmpdir)
-        charmdir = os.commonpath(z.namelist())
-    os.unlink(archive_path)
-    return charmdir

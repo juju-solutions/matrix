@@ -9,14 +9,23 @@ def loader(name):
 
 
 def test_parser():
-    s = rules.load_suite([loader("rules.1.yaml")])
+    s = rules.load_suites([loader("rules.1.yaml")])
     # Suite should have one test with 3 rules
     assert len(s) == 3
     assert len(s[0].rules) == 5
+    assert s[0].rules[0].task.args['entity'] == 'cs:bundle/wiki-simple'
+    assert s[0].rules[-1].task.command == 'matrix.tasks.reset'
+
+    # test merge with overrides and adds
+    s = rules.load_suites([loader("rules.1.yaml"), loader("rules.2.yaml")])
+    assert len(s) == 4
+    assert len(s[0].rules) == 1
+    assert s[0].rules[0].task.command == 'tests.chaos.chaos'
+    assert s[-1].rules[0].task.command == 'tests.health'
 
 
 def test_rule_conditions():
-    s = rules.load_suite([loader("rules.1.yaml")])
+    s = rules.load_suites([loader("rules.1.yaml")])
     context = model.Context(
             loop=None, bus=None, config=None, juju_model=None,
             suite=s)

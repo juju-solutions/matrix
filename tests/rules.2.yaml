@@ -1,0 +1,9 @@
+tests:
+- name: traffic & chaos
+  rules:
+    - do:
+        task: tests.chaos.chaos
+- name: new test
+  rules:
+    - do:
+        task: tests.health
