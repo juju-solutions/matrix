@@ -12,7 +12,7 @@
       "until": chaos.complete
     - "after": health.status.healthy
       "do":
-        "task": tests.chaos.chaos
+        "task": matrix.tasks.glitch
     - "after": glitch.complete
       "do":
         "task": matrix.tasks.reset
