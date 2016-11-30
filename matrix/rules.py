@@ -3,6 +3,8 @@ import fnmatch
 import functools
 import io
 import logging
+from pathlib import Path
+import sys
 import traceback
 import yaml
 
@@ -12,6 +14,7 @@ import juju.model
 
 from . import model
 from .model import RUNNING, COMPLETE, PAUSED
+from . import utils
 
 
 log = logging.getLogger("matrix")
@@ -111,8 +114,13 @@ class Suite(list):
         super(Suite, self).append(test)
 
 
-def load_suite(filelike, factory=Suite):
-    spec = yaml.load(filelike)
+def load_suites(filenames, factory=Suite):
+    spec = {'tests': []}
+    for filename in filenames:
+        log.info("Parsing %s", filename)
+        with open(filename) as fp:
+            utils.merge_spec(spec, yaml.load(fp))
+
     rules = factory.from_spec(spec)
     return rules
 
@@ -124,9 +132,25 @@ class RuleEngine:
 
         self._reported = False
 
-    def load_suite(self, filelike):
-        log.info("Parsing %s" % filelike.name)
-        tests = load_suite(filelike)
+    def load_suite(self):
+        filenames = []
+
+        if self.default_suite:
+            filenames.append(self.default_suite)
+
+        for suite in self.additional_suites:
+            filenames.append(suite)
+
+        if self.bundle_suite:
+            bundle_suite = self.path / self.bundle_suite
+            if bundle_suite.exists():
+                filenames.append(str(bundle_suite))
+
+        tests = load_suites(filenames)
+
+        if not self.path.samefile(Path.cwd()):
+            sys.path.append(str(self.path))  # for custom tasks
+
         context = model.Context(
                 loop=self.loop,
                 bus=self.bus,
@@ -345,7 +369,7 @@ class RuleEngine:
 
     async def __call__(self):
         btask = self.loop.create_task(self.bus.notify(False))
-        context = self.load_suite(self.config_file)
+        context = self.load_suite()
         reporter = functools.partial(self.exception_handler, context)
         self.loop.set_exception_handler(reporter)
         try:
