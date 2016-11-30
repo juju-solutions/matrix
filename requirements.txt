@@ -7,3 +7,6 @@ theblues>=0.3.7,<1.0.0
 juju>=0.0.1,<1.0.0
 #git+https://github.com/juju-solutions/python-libjuju.git#egg=juju
 enforce==0.3.1
+aiohttp>=1.1.6,<2.0.0
+aiodns>=1.1.1,<2.0.0
+aiofiles>=0.3.0,<1.0.0

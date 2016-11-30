@@ -1,4 +1,3 @@
-from pathlib import Path
 from pkg_resources import resource_filename
 
 from matrix import model
@@ -6,18 +5,18 @@ from matrix import rules
 
 
 def loader(name):
-    return Path(resource_filename(__name__, name))
+    return resource_filename(__name__, name)
 
 
 def test_parser():
-    s = rules.load_suite(loader("rules.1.yaml").open())
+    s = rules.load_suite([loader("rules.1.yaml")])
     # Suite should have one test with 3 rules
     assert len(s) == 3
     assert len(s[0].rules) == 5
 
 
 def test_rule_conditions():
-    s = rules.load_suite(loader("rules.1.yaml").open())
+    s = rules.load_suite([loader("rules.1.yaml")])
     context = model.Context(
             loop=None, bus=None, config=None, juju_model=None,
             suite=s)

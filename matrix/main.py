@@ -45,9 +45,10 @@ def setup(matrix, args=None):
     parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
-    parser.add_argument("-c", "--config-file", type=open,
+    parser.add_argument("-c", "--config-file",
                         default=resource_filename(__name__, 'matrix.yaml'))
-    parser.add_argument("bundle")
+    parser.add_argument("bundle", help="Charm store URL or local "
+                                       "path of bundle to test")
     parser.add_argument("test_pattern", nargs="*", default=["*"])
     parser.add_argument("-g", "--glitch_plan")
     parser.add_argument("-n", "--glitch_num", default=5)

@@ -1,6 +1,15 @@
+import atexit
 import copy
 import logging
+import importlib
+import os
 import re
+import shutil
+import tempfile
+import zipfile
+
+import aiohttp
+import aiofiles
 
 
 _marker = object()
@@ -8,16 +17,20 @@ _marker = object()
 
 def resolve_dotpath(name):
     """Resolve a dotted name to a global object."""
-    name = name.split('.')
-    used = name.pop(0)
-    found = __import__(used)
-    for n in name:
-        used = used + '.' + n
+    modules = name.split('.')
+    attrs = [modules.pop()]
+    module = None
+    while modules:
         try:
-            found = getattr(found, n)
-        except AttributeError:
-            __import__(used)
-            found = getattr(found, n)
+            module = importlib.import_module('.'.join(modules))
+            break
+        except ImportError:
+            attrs.insert(0, modules.pop())
+    else:
+        raise ImportError('Unable to find %s' % name)
+    found = module
+    for attr in attrs:
+        found = getattr(found, attr)
     return found
 
 
@@ -31,7 +44,7 @@ class Singleton(type):
         return cls._instances[cls]
 
 
-def deepmerge(dest, src):
+def deepmerge(dest, src, merge_lists=False):
     """
     Deep merge of two dicts.
 
@@ -39,8 +52,10 @@ def deepmerge(dest, src):
     from `src` are passed through `copy.deepcopy`.
     """
     for k, v in src.items():
-        if dest.get(k) and isinstance(v, dict):
-            deepmerge(dest[k], v)
+        if isinstance(v, dict):
+            deepmerge(dest.setdefault(k, {}), v)
+        elif isinstance(v, list) and merge_lists:
+            dest.setdefault(k, []).extend(copy.deepcopy(vv) for vv in v)
         else:
             dest[k] = copy.deepcopy(v)
     return dest
@@ -97,3 +112,20 @@ class EventHandler(logging.Handler):
                     payload=record)
         except:
             self.handleError(record)
+
+
+async def download_and_extract(archive_url, loop):
+    tmpdir = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, tmpdir)
+    archive_path = os.path.join(tmpdir, 'archive.zip')
+    async with aiofiles.open(archive_path, 'wb') as fb:
+        async with aiohttp.ClientSession(loop=loop) as session:
+            async with session.get(archive_url) as resp:
+                async for data in resp.content.iter_chunked(1024):
+                    if data:
+                        await fb.write(data)
+    with zipfile.ZipFile(archive_path, "r") as z:
+        await loop.run_in_executor(z.extractall, tmpdir)
+        charmdir = os.commonpath(z.namelist())
+    os.unlink(archive_path)
+    return charmdir

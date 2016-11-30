@@ -3,15 +3,19 @@ import fnmatch
 import functools
 import io
 import logging
+import os
+import sys
 import traceback
 import yaml
 
 import attr
 import petname
 import juju.model
+from theblues.charmstore import CharmStore
 
 from . import model
 from .model import RUNNING, COMPLETE, PAUSED
+from . import utils
 
 
 log = logging.getLogger("matrix")
@@ -111,8 +115,13 @@ class Suite(list):
         super(Suite, self).append(test)
 
 
-def load_suite(filelike, factory=Suite):
-    spec = yaml.load(filelike)
+def load_suite(filenames, factory=Suite):
+    spec = {}
+    for filename in filenames:
+        log.info("Parsing %s", filename)
+        with open(filename) as fp:
+            utils.deepmerge(spec, yaml.load(fp), merge_lists=True)
+
     rules = factory.from_spec(spec)
     return rules
 
@@ -124,9 +133,23 @@ class RuleEngine:
 
         self._reported = False
 
-    def load_suite(self, filelike):
-        log.info("Parsing %s" % filelike.name)
-        tests = load_suite(filelike)
+    async def load_suite(self):
+        filenames = [self.config_file]
+
+        if os.path.isdir(self.bundle):
+            bundle_path = self.bundle
+        else:
+            log.info("Fetching %s", self.bundle)
+            charmstore = CharmStore()
+            archive_url = await self.loop.run_in_executor(
+                None, charmstore.archive_url, self.bundle)
+            bundle_path = await utils.download_and_extract(archive_url,
+                                                           self.loop)
+        bundle_suite = os.path.join(bundle_path, 'tests', 'matrix.yaml')
+        if os.path.exists(bundle_suite):
+            sys.path.append(bundle_path)  # for custom tasks
+            filenames.append(bundle_suite)
+        tests = load_suite(filenames)
         context = model.Context(
                 loop=self.loop,
                 bus=self.bus,
@@ -345,7 +368,7 @@ class RuleEngine:
 
     async def __call__(self):
         btask = self.loop.create_task(self.bus.notify(False))
-        context = self.load_suite(self.config_file)
+        context = await self.load_suite()
         reporter = functools.partial(self.exception_handler, context)
         self.loop.set_exception_handler(reporter)
         try:
