@@ -7,7 +7,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 import urwid
 
-from .model import PENDING, RUNNING, PAUSED, COMPLETE
+from .model import PENDING
 
 log = logging.getLogger("view")
 
@@ -17,23 +17,17 @@ palette = [
         ("pass", "dark green", "default"),
         ("fail", "dark red", "default"),
         ("focused", "black", "dark cyan", "standout"),
-        ("DEBUG", "yellow", "default"),
+        ("DEBUG", "dark cyan", "default"),
         ("INFO", "default", "default"),
-        ("WARN", "dark cyan", "default"),
-        ("CRITICAL", "fail"),
+        ("WARNING", "yellow", "default"),
+        ("ERROR", "dark red", "default"),
+        ("CRITICAL", "dark red", "default"),
         ]
 
 
 TEST_SYMBOLS = {
         True: ("pass", "\N{HEAVY CHECK MARK}"),
         False: ("fail", "\N{HEAVY BALLOT X}"),
-        }
-
-STATE_SYMNOLS = {
-        PENDING: ("default", PENDING),
-        PAUSED: ("default", PAUSED),
-        RUNNING: ("pass", RUNNING),
-        COMPLETE: ("pass", COMPLETE)
         }
 
 
