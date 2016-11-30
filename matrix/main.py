@@ -9,7 +9,7 @@ import urwid
 from .bus import Bus, set_default_bus
 from . import config
 from . import rules
-from .view import TUIView, RawView, NoopViewController, palette
+from .view import TUIView, RawView, XUnitView, NoopViewController, palette
 
 
 def configLogging(options):
@@ -39,6 +39,8 @@ def setup(matrix, args=None):
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
     parser.add_argument("-s", "--skin", choices=("tui", "raw"), default="tui")
+    parser.add_argument("-x", "--xunit", default=None, metavar='FILENAME',
+                        help="Create an XUnit report file")
     parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd() / "tests",
                         type=Path)
@@ -80,6 +82,9 @@ def main(args=None):
     else:
         view = RawView(bus)
         view_controller = NoopViewController()
+
+    if options.xunit:
+        xunit = XUnitView(bus, options.xunit)  # noqa
 
     try:
         view_controller.start()

@@ -63,12 +63,12 @@ class Test:
                     raise ValueError(
                             "'do' clause required for each rule: %s" % d)
                 if isinstance(aspec, dict):
-                    # Create valid Action instance
-                    do = aspec.pop("action")
+                    # Create valid Task instance
+                    do = aspec.pop("task")
                 else:
                     do = aspec
                     aspec = {}
-                action = model.Action(do, aspec)
+                task = model.Task(do, aspec)
 
                 conditions = []
                 for phase in ["when", "after", "until",
@@ -83,7 +83,7 @@ class Test:
                                     mode=phase,
                                     statement=v))
 
-                self.rules.append(model.Rule(action, conditions))
+                self.rules.append(model.Rule(task, conditions))
 
     def match(self, context):
         """Return list of matching rules given context"""
