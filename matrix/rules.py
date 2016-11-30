@@ -146,6 +146,9 @@ class RuleEngine:
             if bundle_suite.exists():
                 filenames.append(str(bundle_suite))
 
+        if not filenames:
+            log.critical('No test suites to run')
+
         tests = load_suites(filenames)
 
         if not self.path.samefile(Path.cwd()):
