@@ -46,5 +46,9 @@ async def health(context, rule, task, event=None):
         result = 'healthy'
 
     context.set_state('health.status', result)
-    rule.log.info("Health check: %s", result)
+    if result == 'unhealthy':
+        _log = rule.log.error
+    else:
+        _log = rule.log.info
+    _log("Health check: %s", result)
     return True

@@ -1,6 +1,9 @@
+import argparse
 import copy
 import logging
+import importlib
 import re
+import textwrap
 
 
 _marker = object()
@@ -8,16 +11,20 @@ _marker = object()
 
 def resolve_dotpath(name):
     """Resolve a dotted name to a global object."""
-    name = name.split('.')
-    used = name.pop(0)
-    found = __import__(used)
-    for n in name:
-        used = used + '.' + n
+    modules = name.split('.')
+    attrs = [modules.pop()]
+    module = None
+    while modules:
         try:
-            found = getattr(found, n)
-        except AttributeError:
-            __import__(used)
-            found = getattr(found, n)
+            module = importlib.import_module('.'.join(modules))
+            break
+        except ImportError:
+            attrs.insert(0, modules.pop())
+    else:
+        raise ImportError('Unable to find %s' % name)
+    found = module
+    for attr in attrs:
+        found = getattr(found, attr)
     return found
 
 
@@ -44,6 +51,30 @@ def deepmerge(dest, src):
         else:
             dest[k] = copy.deepcopy(v)
     return dest
+
+
+def merge_spec(old_spec, new_spec):
+    """
+    Merge a test suite spec by merging the list of tests.
+
+    The tests will be merged by name; if ``new_spec`` contains a test with
+    the same name as ``old_spec``, the test from ``new_spec`` will be used
+    instead.
+
+    Note that this is destructive, so ``old_spec`` will be modified in place.
+    """
+    old_by_name = {test['name']: test
+                   for test in old_spec['tests']
+                   if 'name' in test}
+    for new_test in new_spec['tests']:
+        if 'name' in new_test and new_test['name'] in old_by_name:
+            # test case exists in both (by name), so replace it
+            old_test = old_by_name[new_test['name']]
+            old_test.clear()
+            old_test.update(copy.deepcopy(new_test))
+        else:
+            # new test case, so add it
+            old_spec['tests'].append(new_test)
 
 
 class O(dict):
@@ -97,3 +128,21 @@ class EventHandler(logging.Handler):
                     payload=record)
         except:
             self.handleError(record)
+
+
+class ParagraphDescriptionFormatter(argparse.HelpFormatter):
+    def _fill_text(self, text, width, indent):
+        lines = []
+        for line in text.splitlines():
+            if line.strip():
+                current_indent = indent
+                additional_indent = re.match(r'(\s+)(.*)', line)
+                if additional_indent:
+                    current_indent += additional_indent.group(1)
+                    line = additional_indent.group(2)
+                lines.extend(textwrap.wrap(line, width,
+                                           initial_indent=current_indent,
+                                           subsequent_indent=current_indent))
+            else:
+                lines.append(line)  # preserve blank lines
+        return '\n'.join(lines)

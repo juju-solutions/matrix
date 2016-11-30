@@ -1,0 +1,39 @@
+#!/usr/bin/env matrix
+"tests":
+- "name": deployment
+  "description": Deploy with Glitches
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": chaos.complete
+    - "after": health.status.healthy
+      "do":
+        "task": matrix.tasks.glitch
+    - "after": glitch.complete
+      "do":
+        "task": matrix.tasks.reset
+- "name": traffic
+  "description": Traffic in the face of Chaos
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "on": model.change
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": glitch.complete
+    - "after": health.healthy
+      "do":
+        "task": matrix.tasks.glitch
+    - "after": health.healthy
+      "do":
+        "task": tests.traffic.test_traffic
+      "until": glitch.complete
+    - "after": glitch.complete
+      "do":
+        "task": matrix.tasks.reset
