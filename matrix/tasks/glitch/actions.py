@@ -24,6 +24,14 @@ class _Actions(dict, metaclass=Singleton):
 
     """
     def tagged_action(self, *tags):
+        """
+        Register an action. Add some 'tags' (strings) that code further
+        down the pipeline can use to decide what to do with this
+        action. For example, we can include a "suboridate_okay" tag to
+        tell the plan generator that it is okay to run this action
+        against a subordinate charm.
+
+        """
         def _tagged_action(func):
             return self.action(func, tags=tags)
         return _tagged_action
