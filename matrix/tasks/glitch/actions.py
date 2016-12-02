@@ -23,7 +23,12 @@ class _Actions(dict, metaclass=Singleton):
     functions.
 
     """
-    def decorate(self, func):
+    def tagged_action(self, *tags):
+        def _tagged_action(func):
+            return self.action(func, tags=tags)
+        return _tagged_action
+
+    def action(self, func, tags=None):
         """
         Register an action. Return a function that accepts a set of objects,
         and iterates over that set, running the registered action on each
@@ -39,20 +44,22 @@ class _Actions(dict, metaclass=Singleton):
         signature = inspect.signature(func)
         self[func.__name__] = {
             'func': wrapped,
-            'type': [p for p in signature.parameters.keys()][2]
+            'type': [p for p in signature.parameters.keys()][2],
+            'tags': tags or []
         }
         return wrapped
 
 
 # Public singleton
 Actions = _Actions()
-action = Actions.decorate
+action = Actions.action
+tagged_action = Actions.tagged_action
 
 
 #
 # Define your actions here
 #
-@action
+@tagged_action('subordinate_okay')
 async def reboot(rule: Rule, model: Model, unit: Unit):
     """
     Given a set of units, send a reboot command to all of them.
@@ -91,7 +98,7 @@ async def add_unit(rule: Rule, model: Model, application: Application,
     await application.add_unit(count=count, to=to)
 
 
-@action
+@tagged_action('subordinate_okay')
 async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
     """Kill the juju agent on a machine."""
 
