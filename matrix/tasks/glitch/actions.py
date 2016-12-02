@@ -13,6 +13,8 @@ from matrix.model import Rule
 
 from matrix.utils import Singleton
 
+from .tags import SUBORDINATE_OK
+
 log = logging.getLogger("glitch")
 
 
@@ -67,7 +69,7 @@ tagged_action = Actions.tagged_action
 #
 # Define your actions here
 #
-@tagged_action('subordinate_okay')
+@tagged_action(SUBORDINATE_OK)
 async def reboot(rule: Rule, model: Model, unit: Unit):
     """
     Given a set of units, send a reboot command to all of them.
@@ -116,7 +118,7 @@ async def add_unit(rule: Rule, model: Model, application: Application,
     await application.add_unit(count=count, to=to)
 
 
-@tagged_action('subordinate_okay')
+@tagged_action(SUBORDINATE_OK)
 async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
     """Kill the juju agent on a machine."""
 

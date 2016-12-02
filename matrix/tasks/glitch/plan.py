@@ -2,6 +2,7 @@ import random
 
 from .selectors import Selectors
 from .actions import Actions
+from .tags import SUBORDINATE_OK
 
 
 class InvalidPlan(Exception):
@@ -31,7 +32,7 @@ async def _fetch_unit(rule, model, tags):
     if not units:
         raise InvalidModel("No units in the model.")
 
-    if 'subordinate_okay' not in tags:
+    if SUBORDINATE_OK not in tags:
         units = [u for u in units if not u.subordinate]
 
     unit = random.choice(units)
@@ -49,7 +50,7 @@ async def _fetch_unit(rule, model, tags):
 async def _fetch_application(rule, model, tags):
     apps = [a for a in model.applications.keys()]
 
-    if 'subordinate_okay' not in tags:
+    if SUBORDINATE_OK not in tags:
         apps = [a for a in apps if not model.applications[a].subordinate]
 
     if not apps:
