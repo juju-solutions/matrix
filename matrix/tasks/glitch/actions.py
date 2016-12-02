@@ -76,7 +76,10 @@ async def sleep(rule: Rule, model: Model=None, obj: Any=None, seconds=2):
     await asyncio.sleep(seconds)
 
 
-@action
+#@action
+# Disabling for now, as it is semi-duplicated by remove_unit,
+# and it's harder to avoid removing the last unit of an application
+# with the info available to a Machine object.
 async def destroy_machine(rule: Rule, model: Model, machine: Machine, force: bool=True):
     """Remove a machine."""
 
@@ -86,6 +89,13 @@ async def destroy_machine(rule: Rule, model: Model, machine: Machine, force: boo
 @action
 async def remove_unit(rule: Rule, model: Model, unit: Unit):
     """Destroy a unit."""
+
+    application = unit.application
+    if len(model.applications[application].units) < 2:
+        rule.log.warning(
+            "Skipping remove unit for {}, as it is the last unit in {}".format(
+                unit, application))
+        return
 
     await unit.remove()
 

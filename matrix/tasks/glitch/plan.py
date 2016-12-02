@@ -47,18 +47,17 @@ async def _fetch_unit(rule, model, tags):
 
 
 async def _fetch_application(rule, model, tags):
-    apps = [a for a in model.applications.values()]
+    apps = [a for a in model.applications.keys()]
 
     if 'subordinate_okay' not in tags:
-        apps = [a for a in apps if not a.subordinate]
+        apps = [a for a in apps if not model.applications[a].subordinate]
 
     if not apps:
         raise InvalidModel("No apps in the model.")
     app = random.choice(apps)
 
     selectors = [
-        {'selector': 'applications'},
-        {'selector': 'one'},
+        {'selector': 'applications', 'application': app},
     ]
     return selectors
 
