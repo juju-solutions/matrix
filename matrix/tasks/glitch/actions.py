@@ -29,7 +29,7 @@ class _Actions(dict, metaclass=Singleton):
         """
         Register an action. Add some 'tags' (strings) that code further
         down the pipeline can use to decide what to do with this
-        action. For example, we can include a "suboridate_okay" tag to
+        action. For example, we can include a SUBORDINATE_OK tag to
         tell the plan generator that it is okay to run this action
         against a subordinate charm.
 
