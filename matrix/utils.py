@@ -5,6 +5,8 @@ import importlib
 import re
 import textwrap
 
+import urwid
+
 
 _marker = object()
 
@@ -146,3 +148,48 @@ class ParagraphDescriptionFormatter(argparse.HelpFormatter):
             else:
                 lines.append(line)  # preserve blank lines
         return '\n'.join(lines)
+
+
+def translate_ansi_colors(entity):
+    if not entity:
+        return entity
+    colors = ['black',
+              'dark red',
+              'dark green',
+              'brown',
+              'dark blue',
+              'dark magenta',
+              'dark cyan',
+              'light gray',
+              'dark gray',
+              'light red',
+              'light green',
+              'yellow',
+              'light blue',
+              'light magenta',
+              'light cyan',
+              'white']
+    results = []
+    split_pat = re.compile('(\x1b\[[^m]+m[^\x1b]*)\x1b\[0m')
+    parse_pat = re.compile('\x1b\[([^m]+)m(.*)')
+    for part in split_pat.split(entity):
+        match = parse_pat.match(part)
+        if match:
+            color_code, text = match.groups()
+            fg = []
+            bg = 'default'
+            for code in color_code.split(';'):
+                code = int(code)
+                if code == 1:
+                    fg.append('bold')
+                elif 30 <= code <= 37:
+                    fg.append(colors[code-30])
+                elif 40 <= code <= 47:
+                    bg = colors[code-40]
+                elif 90 <= code <= 97:
+                    fg.append('bold')
+                    fg.append(colors[code-90])
+            part = (urwid.AttrSpec(','.join(fg), bg), text)
+        if part:
+            results.append(part)
+    return results
