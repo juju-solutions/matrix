@@ -127,6 +127,7 @@ def main(args=None):
 
     if options.skin == "tui":
         screen = urwid.raw_display.Screen()
+        screen.set_terminal_properties(256)
         view = TUIView(bus, screen)
         view_controller = urwid.MainLoop(
             view.widgets,
