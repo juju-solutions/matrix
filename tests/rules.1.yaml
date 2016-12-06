@@ -4,7 +4,6 @@ tests:
   rules:
     - do:
         task: matrix.tasks.deploy
-        entity: cs:bundle/wiki-simple
         version: current
     - do:
         task: tests.traffic.test_traffic
@@ -26,7 +25,6 @@ tests:
   rules:
     - do:
         task: matrix.tasks.deploy
-        entity: cs:bundle/wiki-simple
         version: current
     - do:
         task: tests.traffic.test_traffic
@@ -42,7 +40,6 @@ tests:
   rules:
     - do:
         task: matrix.tasks.deploy
-        entity: cs:bundle/beats-core
         version: current
     - do:
         task: matrix.tasks.health
