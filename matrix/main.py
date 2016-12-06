@@ -105,6 +105,8 @@ def setup(matrix, args=None):
     parser.add_argument("-n", "--glitch_num", default=5)
     parser.add_argument("-o", "--glitch_output", default="glitch_plan.yaml")
     options = parser.parse_args(args, namespace=matrix)
+    if not (options.path.is_dir() and (options.path / 'bundle.yaml').exists()):
+        parser.error('Invalid bundle directory: %s' % options.path)
 
     configLogging(options)
     return options
