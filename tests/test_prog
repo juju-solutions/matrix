@@ -5,7 +5,6 @@
   "rules":
     - "do":
         "task": matrix.tasks.deploy
-        "entity": "cs:bundle/wiki-simple"
         "version": current
     - "after": deploy
       "periodic": 5
@@ -20,7 +19,6 @@
 #  "rules":
 #    - "do":
 #        "task": matrix.tasks.deploy
-#        "entity": "cs:bundle/wiki-simple"
 #        "version": current
 #    - "after": deploy
 #      "on": model.change
