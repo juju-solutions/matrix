@@ -5,17 +5,14 @@
   "rules":
     - "do":
         "task": matrix.tasks.deploy
-        "entity": "cs:bundle/wiki-simple"
-        "version": current
     - "after": deploy
       "periodic": 5
       "do":
         "task": matrix.tasks.health
-      "until": glitch.complete
+      "until": chaos.complete
     - "after": health.status.healthy
       "do":
         "task": matrix.tasks.glitch
-      "until": health.status.unhealthy
     - "after": glitch.complete
       "do":
         "task": matrix.tasks.reset
@@ -24,17 +21,16 @@
   "rules":
     - "do":
         "task": matrix.tasks.deploy
-        "entity": "cs:bundle/wiki-simple"
-        "version": current
     - "after": deploy
+      "on": model.change
       "periodic": 5
       "do":
         "task": matrix.tasks.health
       "until": glitch.complete
-    - "after": health.status.healthy
+    - "after": health.healthy
       "do":
         "task": matrix.tasks.glitch
-    - "after": health.status.healthy
+    - "after": health.healthy
       "do":
         "task": tests.traffic.test_traffic
       "until": glitch.complete

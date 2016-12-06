@@ -10,6 +10,7 @@ import urwid
 
 from .bus import eq, prefixed
 from .model import PENDING, RUNNING, PAUSED, COMPLETE
+from . import utils
 
 log = logging.getLogger("view")
 
@@ -19,23 +20,17 @@ palette = [
         ("pass", "dark green", "default"),
         ("fail", "dark red", "default"),
         ("focused", "black", "dark cyan", "standout"),
-        ("DEBUG", "yellow", "default"),
+        ("DEBUG", "dark cyan", "default"),
         ("INFO", "default", "default"),
-        ("WARN", "dark cyan", "default"),
-        ("CRITICAL", "fail"),
+        ("WARNING", "yellow", "default"),
+        ("ERROR", "dark red", "default"),
+        ("CRITICAL", "dark red", "default"),
         ]
 
 
 TEST_SYMBOLS = {
         True: ("pass", "\N{HEAVY CHECK MARK}"),
         False: ("fail", "\N{HEAVY BALLOT X}"),
-        }
-
-STATE_SYMNOLS = {
-        PENDING: ("default", PENDING),
-        PAUSED: ("default", PAUSED),
-        RUNNING: ("pass", RUNNING),
-        COMPLETE: ("pass", COMPLETE)
         }
 
 
@@ -100,16 +95,19 @@ class SimpleDictValueWalker(urwid.ListWalker):
 
 
 class SimpleListRenderWalker(urwid.ListWalker):
-    def __init__(self, body, widget_func=urwid.Text):
+    def __init__(self, body, widget_func=urwid.Text, ansi_colors=False):
         self.body = body
         self.widget_func = widget_func
         self.focus = 0
+        self.ansi_colors = ansi_colors
 
     def __getitem__(self, pos):
         o = self.body[pos]
         return self.widget_func(o)
 
     def update(self, entity, pos=-1, focus=True):
+        if self.ansi_colors:
+            entity = utils.translate_ansi_colors(entity)
         if pos == -1:
             self.body.append(entity)
             pos = len(self.body) - 1
@@ -368,7 +366,7 @@ class TUIView(View):
     async def watch_juju_status(self):
         while self.running:
             p = await asyncio.create_subprocess_shell(
-                    "juju status --color=false",
+                    "juju status --color=true",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
@@ -383,7 +381,7 @@ class TUIView(View):
 
     async def debug_juju_log(self):
         p = await asyncio.create_subprocess_shell(
-                    "juju debug-log --color=false --tail",
+                    "juju debug-log --color=true --tail",
                     stdout=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
                          "HOME": os.environ.get("HOME")}
