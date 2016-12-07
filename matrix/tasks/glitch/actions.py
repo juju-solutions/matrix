@@ -25,20 +25,24 @@ class _Actions(dict, metaclass=Singleton):
     functions.
 
     """
-    def tagged_action(self, *tags):
+    def decorate(self, *args):
         """
-        Register an action. Add some 'tags' (strings) that code further
-        down the pipeline can use to decide what to do with this
-        action. For example, we can include a SUBORDINATE_OK tag to
-        tell the plan generator that it is okay to run this action
+        Register an action. Possibly add some 'tags' (strings) that code
+        further down the pipeline can use to decide what to do with
+        this action. For example, we can include a SUBORDINATE_OK tag
+        to tell the plan generator that it is okay to run this action
         against a subordinate charm.
 
         """
-        def _tagged_action(func):
-            return self.action(func, tags=tags)
-        return _tagged_action
+        if callable(args[0]):
+            return self._action(*args)
 
-    def action(self, func, tags=None):
+        # else tags are specified
+        def wrapped_action(func):
+            return self._action(func, tags=args)
+        return wrapped_action
+
+    def _action(self, func, tags=None):
         """
         Register an action. Return a function that accepts a set of objects,
         and iterates over that set, running the registered action on each
@@ -62,14 +66,13 @@ class _Actions(dict, metaclass=Singleton):
 
 # Public singleton
 Actions = _Actions()
-action = Actions.action
-tagged_action = Actions.tagged_action
+action = Actions.decorate
 
 
 #
 # Define your actions here
 #
-@tagged_action(SUBORDINATE_OK)
+@action(SUBORDINATE_OK)
 async def reboot(rule: Rule, model: Model, unit: Unit):
     """
     Given a set of units, send a reboot command to all of them.
@@ -118,7 +121,7 @@ async def add_unit(rule: Rule, model: Model, application: Application,
     await application.add_unit(count=count, to=to)
 
 
-@tagged_action(SUBORDINATE_OK)
+@action(SUBORDINATE_OK)
 async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
     """Kill the juju agent on a machine."""
 
