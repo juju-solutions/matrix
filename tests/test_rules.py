@@ -13,7 +13,7 @@ def test_parser():
     # Suite should have one test with 3 rules
     assert len(s) == 3
     assert len(s[0].rules) == 5
-    assert s[0].rules[0].task.args['entity'] == 'cs:bundle/wiki-simple'
+    assert s[0].rules[0].task.command == 'matrix.tasks.deploy'
     assert s[0].rules[-1].task.command == 'matrix.tasks.reset'
 
     # test merge with overrides and adds

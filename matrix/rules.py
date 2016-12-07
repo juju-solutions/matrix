@@ -410,6 +410,7 @@ class RuleEngine:
         self.loop.set_exception_handler(reporter)
         if self.skin == "tui":
             screen = urwid.raw_display.Screen()
+            screen.set_terminal_properties(256)
             view = TUIView(self.bus, context, screen=screen)
             view_controller = urwid.MainLoop(
                 view,

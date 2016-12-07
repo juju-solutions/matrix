@@ -7,6 +7,8 @@ from time import time
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 import urwid
+import ubuntui.anchors
+import ubuntui.palette
 
 from .bus import eq, prefixed
 from .model import PENDING, RUNNING, PAUSED, COMPLETE
@@ -14,7 +16,7 @@ from . import utils
 
 log = logging.getLogger("view")
 
-palette = [
+palette = ubuntui.palette.STYLES + [
         ("default", "default", "default"),
         ("header", "white", "default", "standout"),
         ("pass", "dark green", "default"),
@@ -302,8 +304,8 @@ class TUIView(View):
 
         self.pile = body = urwid.Pile(widgets)
         self.frame = urwid.Frame(
-                header=urwid.Text("Matrix Test Runner"),
-                body=body)
+            header=ubuntui.anchors.Header("Matrix Test Runner"),
+            body=body)
 
         #  Timeline widget
         self.timeline = Lines(self.context.timeline)
