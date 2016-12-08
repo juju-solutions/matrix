@@ -4,6 +4,8 @@ import logging
 import time
 import yaml
 
+from pathlib import Path
+
 from .selectors import Selectors
 from .actions import Actions
 from .plan import generate_plan, validate_plan
@@ -66,10 +68,17 @@ async def glitch(context, rule, task, event=None):
     model = context.juju_model
     config = context.config
 
-    if config.glitch_plan:
-        with open(config.glitch_plan, 'r') as f:
+    if task.args.get('plan'):
+        # Users should specify a relative path in a matrix.yaml file;
+        # we add the bundle's path to it here.
+        glitch_file = Path(config.path, task.args['plan'])
+    else:
+        glitch_file = Path(config.glitch_plan)
+
+    if glitch_file:
+        with glitch_file.open('r') as f:
             glitch_plan = validate_plan(yaml.load(f))
-        rule.log.info("loaded glitch plan from {}".format(config.glitch_plan))
+        rule.log.info("loaded glitch plan from {}".format(glitch_file))
     else:
         glitch_plan = await generate_plan(
             rule,
