@@ -13,6 +13,8 @@ from matrix.model import Rule
 
 from matrix.utils import Singleton
 
+from .tags import SUBORDINATE_OK
+
 log = logging.getLogger("glitch")
 
 
@@ -23,7 +25,24 @@ class _Actions(dict, metaclass=Singleton):
     functions.
 
     """
-    def decorate(self, func):
+    def decorate(self, *args):
+        """
+        Register an action. Possibly add some 'tags' (strings) that code
+        further down the pipeline can use to decide what to do with
+        this action. For example, we can include a SUBORDINATE_OK tag
+        to tell the plan generator that it is okay to run this action
+        against a subordinate charm.
+
+        """
+        if callable(args[0]):
+            return self._action(*args)
+
+        # else tags are specified
+        def wrapped_action(func):
+            return self._action(func, tags=args)
+        return wrapped_action
+
+    def _action(self, func, tags=None):
         """
         Register an action. Return a function that accepts a set of objects,
         and iterates over that set, running the registered action on each
@@ -39,7 +58,8 @@ class _Actions(dict, metaclass=Singleton):
         signature = inspect.signature(func)
         self[func.__name__] = {
             'func': wrapped,
-            'type': [p for p in signature.parameters.keys()][2]
+            'type': [p for p in signature.parameters.keys()][2],
+            'tags': tags or []
         }
         return wrapped
 
@@ -52,7 +72,7 @@ action = Actions.decorate
 #
 # Define your actions here
 #
-@action
+@action(SUBORDINATE_OK)
 async def reboot(rule: Rule, model: Model, unit: Unit):
     """
     Given a set of units, send a reboot command to all of them.
@@ -69,7 +89,10 @@ async def sleep(rule: Rule, model: Model=None, obj: Any=None, seconds=2):
     await asyncio.sleep(seconds)
 
 
-@action
+#@action
+# Disabling for now, as it is semi-duplicated by remove_unit,
+# and it's harder to avoid removing the last unit of an application
+# with the info available to a Machine object.
 async def destroy_machine(rule: Rule, model: Model, machine: Machine, force: bool=True):
     """Remove a machine."""
 
@@ -79,6 +102,13 @@ async def destroy_machine(rule: Rule, model: Model, machine: Machine, force: boo
 @action
 async def remove_unit(rule: Rule, model: Model, unit: Unit):
     """Destroy a unit."""
+
+    application = unit.application
+    if len(model.applications[application].units) < 2:
+        rule.log.warning(
+            "Skipping remove unit for {}, as it is the last unit in {}".format(
+                unit, application))
+        return
 
     await unit.remove()
 
@@ -91,7 +121,7 @@ async def add_unit(rule: Rule, model: Model, application: Application,
     await application.add_unit(count=count, to=to)
 
 
-@action
+@action(SUBORDINATE_OK)
 async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
     """Kill the juju agent on a machine."""
 

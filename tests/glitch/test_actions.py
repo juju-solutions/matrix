@@ -15,7 +15,7 @@ class TestAction(unittest.TestCase):
         self.assertFalse('faux_action' in self.actions)
 
         @self.actions.decorate
-        def faux_action(model, unit, **kwargs):
+        def faux_action(rule, model, unit, **kwargs):
             pass
 
         self.assertTrue('faux_action' in self.actions)

@@ -2,6 +2,7 @@ import random
 
 from .selectors import Selectors
 from .actions import Actions
+from .tags import SUBORDINATE_OK
 
 
 class InvalidPlan(Exception):
@@ -12,7 +13,7 @@ class InvalidModel(Exception):
     pass
 
 
-async def _fetch_machine(rule, model):
+async def _fetch_machine(rule, model, tags):
     machines = [m for m in model.machines.values()]
     if not machines:
         raise InvalidModel("No machines in the model.")
@@ -26,10 +27,13 @@ async def _fetch_machine(rule, model):
     return selectors
 
 
-async def _fetch_unit(rule, model):
+async def _fetch_unit(rule, model, tags):
     units = [u for u in model.units.values()]
     if not units:
         raise InvalidModel("No units in the model.")
+
+    if SUBORDINATE_OK not in tags:
+        units = [u for u in units if not u.subordinate]
 
     unit = random.choice(units)
 
@@ -43,27 +47,29 @@ async def _fetch_unit(rule, model):
     return selectors
 
 
-async def _fetch_application(rule, model):
-    apps = [a for a in model.applications.values()],
+async def _fetch_application(rule, model, tags):
+    apps = [a for a in model.applications.keys()]
+
+    if SUBORDINATE_OK not in tags:
+        apps = [a for a in apps if not model.applications[a].subordinate]
 
     if not apps:
         raise InvalidModel("No apps in the model.")
     app = random.choice(apps)
 
     selectors = [
-        {'selector': 'applications'},
-        {'selector': 'one'},
+        {'selector': 'applications', 'application': app},
     ]
     return selectors
 
 
-async def fetch(rule, object_type, model):
+async def fetch(rule, object_type, model, tags=None):
     if object_type == 'machine':
-        return await _fetch_machine(rule, model)
+        return await _fetch_machine(rule, model, tags)
     if object_type == 'unit':
-        return await _fetch_unit(rule, model)
+        return await _fetch_unit(rule, model, tags)
     if object_type == 'application':
-        return await _fetch_application(rule, model)
+        return await _fetch_application(rule, model, tags)
 
 
 def validate_plan(plan):
@@ -116,8 +122,9 @@ async def generate_plan(rule, model, num):
     for i in range(0, num):
         action = random.choice([a for a in Actions])
         obj_type = Actions[action]['type']
+        tags = Actions[action]['tags']
 
-        selectors = await fetch(rule, obj_type, model)
+        selectors = await fetch(rule, obj_type, model, tags)
 
         plan['actions'].append({'action': action, 'selectors': selectors})
 
