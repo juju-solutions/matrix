@@ -3,6 +3,7 @@ import collections
 import datetime
 import logging
 import os
+import sys
 from time import time
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -120,6 +121,12 @@ class SimpleListRenderWalker(urwid.ListWalker):
         else:
             self._modified()
 
+    def extend(self, contents):
+        if self.ansi_colors:
+            contents = [utils.translate_ansi_colors(item) for item in contents]
+        self.body.extend(contents)
+        self._modified()
+
     def _pos(self, pos, offset=None):
         if offset:
             pos = pos + offset
@@ -143,46 +150,34 @@ class Viewlet(urwid.WidgetWrap):
 
 
 class Lines(Viewlet):
-    def __init__(self, model=None, widget_func=urwid.Text):
+    def __init__(self, model=None, widget_func=urwid.Text, ansi_colors=False):
         if model is None:
             model = []
         self.m = model
         self.walker = SimpleListRenderWalker(
-                self.m, widget_func=widget_func)
+                self.m, widget_func=widget_func, ansi_colors=ansi_colors)
         self._w = urwid.ListBox(self.walker)
 
     def update(self, entity, pos=-1, focus=True):
         self.walker.update(entity, pos=pos, focus=focus)
 
+    def extend(self, contents):
+        self.walker.extend(contents)
+
+    def clear(self):
+        self.m.clear()
+
     def _modified(self):
         self.walker._modified()
 
 
-class View(urwid.WidgetWrap):
-    def __init__(self, bus, context, screen=None):
+class View:
+    def __init__(self, bus, context):
         self.bus = bus
         self.context = context
-        self.screen = screen
-        self._w = self.build_ui()
         self.subscribe()
-        self._input_mode = "default"
-
-    @property
-    def input_mode(self):
-        return self._input_mode
-
-    @input_mode.setter
-    def input_mode(self, value):
-        self.bus.dispatch(kind="ui.change", payload=value)
-        self._input_mode = value
-
-    def build_ui(self):
-        pass
 
     def subscribe(self):
-        pass
-
-    def input_handler(self, ch):
         pass
 
 
@@ -239,7 +234,7 @@ def fetch_name(obj):
     return obj['test'].name
 
 
-class TUIView(View):
+class TUIView(View, urwid.WidgetWrap):
     # Commands is a nested dict with [mode]: {"k": callsignature}
     KEY_MAP = {
             "default": {
@@ -253,6 +248,25 @@ class TUIView(View):
             "quit": "quitter",
             "toggle timeline": "toggle_timeline",
             }
+
+    def __init__(self, bus, context, screen):
+        self.juju_model = None
+        self.screen = screen
+        self._input_mode = "default"
+        super().__init__(bus, context)
+        urwid.WidgetWrap.__init__(self, self.build_ui())
+
+    @property
+    def input_mode(self):
+        return self._input_mode
+
+    @input_mode.setter
+    def input_mode(self, value):
+        self.bus.dispatch(kind="ui.change", payload=value)
+        self._input_mode = value
+
+    def input_handler(self, ch):
+        pass
 
     def build_ui(self):
         widgets = []
@@ -280,19 +294,21 @@ class TUIView(View):
             ])))
 
         self.status = Lines(
-                collections.deque([], 100),
-                widget_func=render_status)
+            collections.deque([], 100),
+            widget_func=render_status)
         self.bus.subscribe(self.show_log, eq("logging.message"))
 
         self.running = True
-        self.model = Lines()
+        self.model = Lines(ansi_colors=True)
         # Ideally libjuju provides something like this
         self.model_watcher = asyncio.get_event_loop().create_task(
                 self.watch_juju_status())
 
-        self.debug = Lines(collections.deque([], 200))
+        self.debug = Lines(collections.deque([], 200), ansi_colors=True)
         self.debug_watcher = asyncio.get_event_loop().create_task(
                 self.debug_juju_log())
+
+        self.bus.subscribe(self.new_model, eq("model.new"))
 
         widgets.append(("weight", 2, urwid.Columns([
             urwid.LineBox(self.status, "Status Log"),
@@ -322,7 +338,9 @@ class TUIView(View):
 
     def show_keymap(self, e):
         kbmaps = self.resolve_input_map()
-        output = ["{}: {} ".format(k, v) for (k, v) in kbmaps.items() if not k.startswith("_")]
+        output = ["{}: {} ".format(k, v)
+                  for (k, v) in kbmaps.items()
+                  if not k.startswith("_")]
         self.control_bar.set_text(output)
 
     def resolve_input_map(self):
@@ -367,8 +385,12 @@ class TUIView(View):
 
     async def watch_juju_status(self):
         while self.running:
-            p = await asyncio.create_subprocess_shell(
-                    "juju status --color=true",
+            if not self.juju_model:
+                await asyncio.sleep(0.5)
+                continue
+            p = await asyncio.create_subprocess_exec(
+                    "juju", "status", "--color=true",
+                    "-m", self.juju_model,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
@@ -376,24 +398,34 @@ class TUIView(View):
                     )
             stdout, stderr = await p.communicate()
             output = stdout.decode('utf-8')
-            self.model.m.clear()
-            self.model.m.extend(output.splitlines())
-            self.model._modified()
+            self.model.clear()
+            self.model.extend(output.splitlines())
             await asyncio.sleep(2.0)
 
     async def debug_juju_log(self):
-        p = await asyncio.create_subprocess_shell(
-                    "juju debug-log --color=true --tail",
+        old_model = None
+        while self.running:
+            if not self.juju_model:
+                await asyncio.sleep(0.5)
+                continue
+            if old_model:
+                self.debug.update("", -1)
+                self.debug.update("-" * 79, -1)
+                self.debug.update("New model: %s" % self.juju_model, -1)
+                self.debug.update("-" * 79, -1)
+            old_model = self.juju_model
+            p = await asyncio.create_subprocess_exec(
+                    "juju", "debug-log", "--color=true", "--tail",
+                    "-m", self.juju_model,
                     stdout=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
-                         "HOME": os.environ.get("HOME")}
-                    )
-        while self.running and not p.returncode:
-            data = await p.stdout.readline()
-            output = data.decode('utf-8').rstrip()
-            self.debug.update(output, -1)
-        if not p.returncode:
-            p.kill()
+                         "HOME": os.environ.get("HOME")})
+            while self.juju_model == old_model and not p.returncode:
+                data = await p.stdout.readline()
+                output = data.decode('utf-8').rstrip()
+                self.debug.update(output, -1)
+            if not p.returncode:
+                p.kill()
 
     def handle_tests(self, e):
         name = ""
@@ -452,6 +484,9 @@ class TUIView(View):
             self.tasks[sc["name"]]["state"] = sc["new_value"]
             self.task_walker._modified()
 
+    def new_model(self, event):
+        self.juju_model = event.payload.info.name if event.payload else None
+
 
 class RawView(View):
     def subscribe(self):
@@ -461,6 +496,7 @@ class RawView(View):
 
     def show_log(self, e):
         print(e.payload.output)
+        sys.stdout.flush()
 
     def show_test(self, e):
         test = e.payload
@@ -474,17 +510,19 @@ class RawView(View):
             print("Run Complete")
             context = e.payload
             for test in context.suite:
-                print("{:18} {}".format(
-                    test.name, TEST_SYMBOLS[self.results[test.name]][1]))
+                result = TEST_SYMBOLS[self.results[test.name]][1]
+                msg = "{:18} {}".format(test.name, result)
+                print(msg)
             self.bus.shutdown()
+        sys.stdout.flush()
 
 
 class XUnitView(View):
-    def __init__(self, bus, filename):
+    def __init__(self, bus, context, filename):
         self.filename = filename
         self.results = []
         self.current_test = None
-        super().__init__(bus)
+        super().__init__(bus, context)
 
     def subscribe(self):
         self.bus.subscribe(self.start_test, eq("test.start"))

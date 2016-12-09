@@ -1,7 +1,5 @@
 import asyncio
-import functools
 import logging
-import time
 import yaml
 
 from pathlib import Path
@@ -23,7 +21,8 @@ def default_resolver(model, kind, name):
     return obj
 
 
-async def select(rule, model, selectors, objects=None, resolver=default_resolver):
+async def select(rule, model, selectors, objects=None,
+                 resolver=default_resolver):
     if not selectors:
         if objects is None:
             raise ValueError('No valid objects specified by selectors')
@@ -68,11 +67,12 @@ async def glitch(context, rule, task, event=None):
     model = context.juju_model
     config = context.config
 
+    glitch_file = None
     if task.args.get('plan'):
         # Users should specify a relative path in a matrix.yaml file;
         # we add the bundle's path to it here.
         glitch_file = Path(config.path, task.args['plan'])
-    else:
+    elif config.glitch_plan:
         glitch_file = Path(config.glitch_plan)
 
     if glitch_file:
@@ -104,9 +104,12 @@ async def glitch(context, rule, task, event=None):
             continue
 
         # Run the specified action on those units
-        rule.log.debug("GLITCHING {}: {}".format(actionf.__name__, action))
+        rule.log.info("GLITCHING {}: {}".format(actionf.__name__, objects))
 
-        await actionf(rule, model, objects, **action)
+        try:
+            await asyncio.wait_for(actionf(rule, model, objects, **action), 30)
+        except asyncio.TimeoutError:
+            rule.log.error("Timeout running {}".format(actionf.__name__))
         context.bus.dispatch(
             origin="glitch",
             payload={'action': actionf.__name__, **action},

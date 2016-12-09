@@ -9,6 +9,7 @@ import yaml
 
 import attr
 import petname
+import juju.controller
 import juju.model
 import urwid
 
@@ -16,7 +17,7 @@ from .bus import eq
 from . import model
 from .model import RUNNING, PAUSED
 from . import utils
-from .view import TUIView, RawView, NoopViewController, palette
+from .view import TUIView, RawView, XUnitView, NoopViewController, palette
 
 
 log = logging.getLogger("matrix")
@@ -167,7 +168,7 @@ class RuleEngine:
                 loop=self.loop,
                 bus=self.bus,
                 config=self,
-                juju_model=juju.model.Model(self.loop),
+                juju_controller=juju.controller.Controller(self.loop),
                 suite=tests)
         return context
 
@@ -220,14 +221,14 @@ class RuleEngine:
                         # The execution is managed by the subscription
                         # however, we check here if the termination
                         # conditions have been met.
-                        # XXX: "on" events expect an "until" clause to handle their
-                        # exit
+                        # XXX: "on" events expect an "until" clause to handle
+                        # their exit
                         subscription = await rule.setup_event(context)
                         log.debug("Subscribed  'on' event %s", rule)
                 else:
                     # RUN
-                    # The rules conditions were met
-                    # we should spawn the task and record states for it in context
+                    # The rules conditions were met we should spawn
+                    # the task and record states for it in context
                     result = await rule.execute(context)
                     # XXX: if result is False
 
@@ -354,13 +355,52 @@ class RuleEngine:
                 kind="test.schedule",
                 payload=context.suite)
         for test in context.suite:
-            await self.run_once(context, test)
+            context.test = test
+            try:
+                await self.add_model(context)
+                await self.run_once(context, test)
+            finally:
+                await self.destroy_model(context)
             context.states.clear()
             context.waiters.clear()
         self.bus.dispatch(
                 origin="matrix",
                 kind="test.finish",
                 payload=context
+        )
+
+    async def add_model(self, context):
+        if self.model:
+            if context.juju_model:
+                return
+            log.info("Connecting to model %s", self.model)
+            context.juju_model = juju.model.Model(loop=self.loop)
+            await asyncio.wait_for(
+                context.juju_model.connect_model(self.model), 30)
+        else:
+            name = "matrix-{}".format(petname.Generate(2, '-'))
+            log.info("Creating model %s", name)
+            context.juju_model = await asyncio.wait_for(
+                context.juju_controller.add_model(name), 30)
+        self.bus.dispatch(
+            origin="matrix",
+            payload=context.juju_model,
+            kind="model.new",
+        )
+
+    async def destroy_model(self, context):
+        if self.model or not context.juju_model:
+            return
+        model_info = context.juju_model.info
+        log.info("Destroying model %s", model_info.name)
+        await context.juju_model.disconnect()
+        await asyncio.wait_for(
+            context.juju_controller.destroy_models(model_info.uuid), 30)
+        context.juju_model = None
+        context.bus.dispatch(
+            origin="model",
+            payload=context.juju_model,
+            kind="model.new",
         )
 
     def handle_shutdown(self, event):
@@ -394,15 +434,6 @@ class RuleEngine:
             return
         self._reported = True
 
-    async def model_change(self, delta, old_obj, new_obj, juju_model):
-        self.bus.dispatch(
-            kind="model.change",
-            payload={
-                'delta': delta,
-                'old_obj': old_obj,
-                'new_obj': new_obj,
-            })
-
     async def __call__(self):
         btask = self.loop.create_task(self.bus.notify(False))
         context = self.load_suite()
@@ -411,7 +442,7 @@ class RuleEngine:
         if self.skin == "tui":
             screen = urwid.raw_display.Screen()
             screen.set_terminal_properties(256)
-            view = TUIView(self.bus, context, screen=screen)
+            view = TUIView(self.bus, context, screen)
             view_controller = urwid.MainLoop(
                 view,
                 palette,
@@ -422,18 +453,22 @@ class RuleEngine:
             view = RawView(self.bus, context)
             view_controller = NoopViewController()
 
+        if self.xunit:
+            xunit = XUnitView(self.bus, context, self.xunit)  # noqa
+
         try:
             view_controller.start()
-            # TODO: Create model per test, or model per suite
-            await context.juju_model.connect_current()
-            context.juju_model.add_observer(self.model_change)
+            if self.controller:
+                await context.juju_controller.connect_controller(
+                    self.controller)
+            else:
+                await context.juju_controller.connect_current()
             await self.run(context)
         finally:
-            await context.juju_model.disconnect()
             # Wait for any unprocessed events before exiting the loop
             await btask
             view_controller.stop()
+            await context.juju_controller.disconnect()
         self.loop.stop()
         if self._exc and not isinstance(self._exc, ShutdownException):
             raise self._exc[0](self._exc[1]).with_traceback(self._exc[2])
-

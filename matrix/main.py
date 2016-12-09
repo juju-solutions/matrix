@@ -8,7 +8,6 @@ from pkg_resources import resource_filename
 from .bus import Bus, set_default_bus
 from . import config
 from . import rules
-from .view import XUnitView
 from . import utils
 
 
@@ -76,6 +75,10 @@ def setup(matrix, args=None):
                "        $ matrix -DB tests/matrix_extra.yaml\n"
                "\n",
     )
+    parser.add_argument("-c", "--controller", default=None,
+                        help="Controller to use (default: current)")
+    parser.add_argument("-m", "--model", default=None,
+                        help="Model to use instead of creating one per test")
     parser.add_argument("-l", "--log-level", default=None)
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
@@ -120,8 +123,6 @@ def main(args=None):
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
 
-    if options.xunit:
-        xunit = XUnitView(bus, options.xunit)  # noqa
 
     try:
         loop.create_task(matrix())

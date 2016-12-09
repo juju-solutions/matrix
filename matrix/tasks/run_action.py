@@ -20,11 +20,9 @@ async def run_action(context, rule, task, event=None):
     unit_selector = task.args.get('unit')
     action_name = task.args['action']
     params = task.args['params']
-    for app in context.apps:
-        if app.name == app_name:
-            break
-    else:
+    if app_name not in context.juju_model.applications:
         raise ValueError('Application not found: %s', app_name)
+    app = context.juju_model.applications[app_name]
     if unit_selector is None:
         unit = choice(app.units)
     elif unit_selector == 'leader':
