@@ -240,7 +240,7 @@ class TUIView(View, urwid.WidgetWrap):
             "default": {
                 "_master": True,
                 "q": "quit",
-                "t": "toggle timeline",
+                # "t": "toggle timeline",
                 }
             }
 
