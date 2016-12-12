@@ -360,7 +360,8 @@ class RuleEngine:
                 await self.add_model(context)
                 await self.run_once(context, test)
             finally:
-                await self.destroy_model(context)
+                if not self.keep_models:
+                    await self.destroy_model(context)
             context.states.clear()
             context.waiters.clear()
         self.bus.dispatch(
@@ -402,6 +403,7 @@ class RuleEngine:
             payload=context.juju_model,
             kind="model.new",
         )
+        log.info("Model destroyed")
 
     def handle_shutdown(self, event):
         self._should_run = False

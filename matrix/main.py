@@ -79,6 +79,9 @@ def setup(matrix, args=None):
                         help="Controller to use (default: current)")
     parser.add_argument("-m", "--model", default=None,
                         help="Model to use instead of creating one per test")
+    parser.add_argument("-k", "--keep-models", action="store_true",
+                        default=False, help="Keep the created per-test models "
+                                            "for further inspection")
     parser.add_argument("-l", "--log-level", default=None)
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
