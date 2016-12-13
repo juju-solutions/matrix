@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 
 
 async def health(context, rule, task, event=None):
@@ -18,7 +18,7 @@ async def health(context, rule, task, event=None):
         elif app.status not in ('active', 'unknown', ''):
             busy_apps.append(app)
         for unit in app.units:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             agent_status_duration = now - unit.agent_status_since
             agent_busy = agent_status_duration < stable_period
             workload_status_duration = now - unit.workload_status_since
