@@ -65,8 +65,13 @@ async def machines(rule: Rule, model: Model):
 
 
 @selector
-async def applications(rule: Rule, model: Model):
-    return [a for a in model.applications.values()]
+async def applications(rule: Rule, model: Model, application: Application=None):
+    if application is None:
+        return [a for a in model.applications.values()]
+    else:
+        # All the work is done for us in spinning up the application
+        # object. Just return it.
+        return [application]
 
 
 @selector

@@ -58,8 +58,9 @@ class Context:
     # Task cancellation callbacks
     # XXX: use an event for this?
     waiters = attr.ib(default=attr.Factory(dict), repr=False, init=False)
-    juju_model = attr.ib(repr=False)
-    apps = attr.ib(default=attr.Factory(list), repr=False)
+    juju_controller = attr.ib(repr=False)
+    juju_model = attr.ib(repr=False, init=False)
+    test = attr.ib(repr=False, init=False)
 
     def set_state(self, name, value):
         old_value = self.states.get(name, _marker)

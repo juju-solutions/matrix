@@ -3,6 +3,7 @@ import collections
 import datetime
 import logging
 import os
+import sys
 from time import time
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -10,6 +11,7 @@ import urwid
 import ubuntui.anchors
 import ubuntui.palette
 
+from .bus import eq, prefixed
 from .model import PENDING
 from . import utils
 
@@ -119,6 +121,12 @@ class SimpleListRenderWalker(urwid.ListWalker):
         else:
             self._modified()
 
+    def extend(self, contents):
+        if self.ansi_colors:
+            contents = [utils.translate_ansi_colors(item) for item in contents]
+        self.body.extend(contents)
+        self._modified()
+
     def _pos(self, pos, offset=None):
         if offset:
             pos = pos + offset
@@ -137,15 +145,37 @@ class SimpleListRenderWalker(urwid.ListWalker):
         self._modified()
 
 
-class View:
-    def __init__(self, bus, screen=None):
-        self.bus = bus
-        self.screen = screen
-        self.widgets = self.build_ui()
-        self.subscribe()
+class Viewlet(urwid.WidgetWrap):
+    pass
 
-    def build_ui(self):
-        pass
+
+class Lines(Viewlet):
+    def __init__(self, model=None, widget_func=urwid.Text, ansi_colors=False):
+        if model is None:
+            model = []
+        self.m = model
+        self.walker = SimpleListRenderWalker(
+                self.m, widget_func=widget_func, ansi_colors=ansi_colors)
+        self._w = urwid.ListBox(self.walker)
+
+    def update(self, entity, pos=-1, focus=True):
+        self.walker.update(entity, pos=pos, focus=focus)
+
+    def extend(self, contents):
+        self.walker.extend(contents)
+
+    def clear(self):
+        self.m.clear()
+
+    def _modified(self):
+        self.walker._modified()
+
+
+class View:
+    def __init__(self, bus, context):
+        self.bus = bus
+        self.context = context
+        self.subscribe()
 
     def subscribe(self):
         pass
@@ -154,31 +184,6 @@ class View:
 class SelectableText(urwid.Edit):
     def valid_char(self, ch):
         return False
-
-
-class ControlBar(urwid.Edit):
-    def configure(self, mapping):
-        self.callback_map = mapping
-        return self
-
-    def keypress(self, size, ch):
-        if ch in self.callback_map:
-            m, ctx, args = self.callback_map[ch]
-            m(ctx, *args)
-            return
-        return ch
-
-
-def eq(expected):
-    def _eq(e):
-        return e.kind == expected
-    return _eq
-
-
-def prefixed(expected):
-    def _prefixed(e):
-        return e.kind.startswith(expected)
-    return _prefixed
 
 
 def chop_microseconds(delta):
@@ -225,12 +230,46 @@ def render_test(test_row):
     return urwid.Text(output)
 
 
-class TUIView(View):
+def fetch_name(obj):
+    return obj['test'].name
+
+
+class TUIView(View, urwid.WidgetWrap):
+    # Commands is a nested dict with [mode]: {"k": callsignature}
+    KEY_MAP = {
+            "default": {
+                "_master": True,
+                "q": "quit",
+                # "t": "toggle timeline",
+                }
+            }
+
+    UI_ACTIONS = {
+            "quit": "quitter",
+            "toggle timeline": "toggle_timeline",
+            }
+
+    def __init__(self, bus, context, screen):
+        self.juju_model = None
+        self.screen = screen
+        self._input_mode = "default"
+        super().__init__(bus, context)
+        urwid.WidgetWrap.__init__(self, self.build_ui())
+
+    @property
+    def input_mode(self):
+        return self._input_mode
+
+    @input_mode.setter
+    def input_mode(self, value):
+        self.bus.dispatch(kind="ui.change", payload=value)
+        self._input_mode = value
+
+    def input_handler(self, ch):
+        pass
+
     def build_ui(self):
         widgets = []
-
-        def fetch_name(obj):
-            return obj['test'].name
 
         self.tests = collections.OrderedDict()
         self.test_walker = SimpleDictValueWalker(
@@ -254,33 +293,28 @@ class TUIView(View):
             urwid.LineBox(self.task_view, "Tasks")
             ])))
 
-        self.status = collections.deque([], 100)
-        self.status_walker = SimpleListRenderWalker(
-                self.status, widget_func=render_status)
-        self.status_view = urwid.ListBox(self.status_walker)
+        self.status = Lines(
+            collections.deque([], 100),
+            widget_func=render_status)
         self.bus.subscribe(self.show_log, eq("logging.message"))
 
         self.running = True
-        self.model = []
-        self.model_walker = SimpleListRenderWalker(self.model,
-                                                   ansi_colors=True)
-        self.model_view = urwid.ListBox(self.model_walker)
+        self.model = Lines(ansi_colors=True)
         # Ideally libjuju provides something like this
         self.model_watcher = asyncio.get_event_loop().create_task(
                 self.watch_juju_status())
 
-        self.debug = collections.deque([], 200)
-        self.debug_walker = SimpleListRenderWalker(self.debug,
-                                                   ansi_colors=True)
-        self.debug_view = urwid.ListBox(self.debug_walker)
+        self.debug = Lines(collections.deque([], 200), ansi_colors=True)
         self.debug_watcher = asyncio.get_event_loop().create_task(
                 self.debug_juju_log())
 
+        self.bus.subscribe(self.new_model, eq("model.new"))
+
         widgets.append(("weight", 2, urwid.Columns([
-            urwid.LineBox(self.status_view, "Status Log"),
+            urwid.LineBox(self.status, "Status Log"),
             urwid.Pile([
-                urwid.LineBox(self.model_view, "Juju Model"),
-                ("weight", 0.6, urwid.LineBox(self.debug_view, "Juju Debug")),
+                urwid.LineBox(self.model, "Juju Model"),
+                ("weight", 0.6, urwid.LineBox(self.debug, "Juju Debug")),
                 ])
             ])))
 
@@ -288,12 +322,75 @@ class TUIView(View):
         self.frame = urwid.Frame(
             header=ubuntui.anchors.Header("Matrix Test Runner"),
             body=body)
+
+        #  Timeline widget
+        self.timeline = Lines(self.context.timeline)
+        self.bus.subscribe(self.populate_timeline,  eq("state.change"))
+        self.bus.subscribe(self.populate_timeline,  eq("model.change"))
+
+        # Footer
+        self.control_bar = urwid.Text("")
+        self.frame.footer = self.control_bar
+        self.bus.subscribe(self.show_keymap, eq("ui.change"))
+        # Mutating this property sets up the UI as well
+        self.input_mode = "default"
         return self.frame
+
+    def show_keymap(self, e):
+        kbmaps = self.resolve_input_map()
+        output = ["{}: {} ".format(k, v)
+                  for (k, v) in kbmaps.items()
+                  if not k.startswith("_")]
+        self.control_bar.set_text(output)
+
+    def resolve_input_map(self):
+        mode = self.input_mode
+        master = False
+        m = self.KEY_MAP.get(mode)
+        kbmap = collections.ChainMap(m)
+        if m:
+            kbmap = kbmap.new_child(m)
+            if m.get("_master", False) is True:
+                master = True
+        if not m and mode != "default" and not master:
+            kbmap = kbmap.new_child(self.KEY_MAP["default"])
+        return kbmap
+
+    def resolve_input(self, ch):
+        kbmap = self.resolve_input_map()
+        if ch in kbmap:
+            return kbmap[ch]
+        return None
+
+    def keypress(self, size, ch):
+        action = self.resolve_input(ch)
+        if not action:
+            return False
+        method = None
+        method_name = self.UI_ACTIONS.get(action)
+        if method_name:
+            log.debug("Resolving method %s for %s", method_name, ch)
+            method = getattr(self, method_name, None)
+        if not method:
+            log.debug("Key %s in mapping %s fail to find action %s",
+                      ch, self.mode, action)
+            return False
+
+        r = method(ch)
+        return r is not False
+
+    def quitter(self, ch):
+        self.running = False
+        self.bus.shutdown()
 
     async def watch_juju_status(self):
         while self.running:
-            p = await asyncio.create_subprocess_shell(
-                    "juju status --color=true",
+            if not self.juju_model:
+                await asyncio.sleep(0.5)
+                continue
+            p = await asyncio.create_subprocess_exec(
+                    "juju", "status", "--color=true",
+                    "-m", self.juju_model,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
@@ -302,24 +399,33 @@ class TUIView(View):
             stdout, stderr = await p.communicate()
             output = stdout.decode('utf-8')
             self.model.clear()
-            for line in output.splitlines():
-                self.model_walker.update(line)
-            self.model_walker._modified()
+            self.model.extend(output.splitlines())
             await asyncio.sleep(2.0)
 
     async def debug_juju_log(self):
-        p = await asyncio.create_subprocess_shell(
-                    "juju debug-log --color=true --tail",
+        old_model = None
+        while self.running:
+            if not self.juju_model:
+                await asyncio.sleep(0.5)
+                continue
+            if old_model:
+                self.debug.update("", -1)
+                self.debug.update("-" * 79, -1)
+                self.debug.update("New model: %s" % self.juju_model, -1)
+                self.debug.update("-" * 79, -1)
+            old_model = self.juju_model
+            p = await asyncio.create_subprocess_exec(
+                    "juju", "debug-log", "--color=true", "--tail",
+                    "-m", self.juju_model,
                     stdout=asyncio.subprocess.PIPE,
                     env={"PATH": os.environ.get("PATH"),
-                         "HOME": os.environ.get("HOME")}
-                    )
-        while self.running and not p.returncode:
-            data = await p.stdout.readline()
-            output = data.decode('utf-8').rstrip()
-            self.debug_walker.update(output, -1)
-        if not p.returncode:
-            p.kill()
+                         "HOME": os.environ.get("HOME")})
+            while self.juju_model == old_model and not p.returncode:
+                data = await p.stdout.readline()
+                output = data.decode('utf-8').rstrip()
+                self.debug.update(output, -1)
+            if not p.returncode:
+                p.kill()
 
     def handle_tests(self, e):
         name = ""
@@ -346,48 +452,21 @@ class TUIView(View):
             self.add_log("-" * 78)
             self.tasks.clear()
         elif e.kind == "test.finish":
-            def quit_handler(ctx):
-                self.running = False
-                ctx.bus.shutdown()
+            pass
 
-            def timeline_view(ctx, e):
-                ctx.show_timeline(e)
-
-            control_bar = ControlBar("t for timeline, q to quit")
-            control_bar.configure({
-                'q': (quit_handler, self, ()),
-                't': (timeline_view, self, (e,)),
-                })
-            self.frame.footer = control_bar
-            self.frame.focus_position = "footer"
         self.test_walker._modified()
 
-    def show_timeline(self, e):
-        context = e.payload
-        events = []
-        # remove status/task widgets
-        for evt in context.timeline:
-            tl = SelectableText(str(evt))
-            tl = urwid.AttrMap(tl, None, "focused")
-            events.append(tl)
+    def toggle_timeline(self, ch):
+        if self.frame.body is self.pile:
+            self.frame.body = urwid.LineBox(self.timeline, "Timeline")
+        else:
+            self.frame.body = self.pile
 
-        def quit_handler(edit, new_text):
-            if new_text.lower() == "q":
-                self.running = False
-                self.bus.shutdown()
-
-        quitter = urwid.Edit("Press 'q' to exit... ", multiline=False)
-        urwid.connect_signal(quitter, "change", quit_handler)
-        events.append(quitter)
-
-        body = urwid.SimpleFocusListWalker(events)
-        listbox = urwid.TreeListBox(body)
-        self.frame.body = urwid.LineBox(listbox, "Timeline")
-        self.frame.focus_position = "body"
-        listbox.focus_position = len(body) - 1
+    def populate_timeline(self, e):
+        self.timeline.update(str(e.payload))
 
     def add_log(self, msg):
-        self.status_walker.update(msg)
+        self.status.update(msg)
 
     def show_log(self, event):
         self.add_log(event.payload)
@@ -405,6 +484,9 @@ class TUIView(View):
             self.tasks[sc["name"]]["state"] = sc["new_value"]
             self.task_walker._modified()
 
+    def new_model(self, event):
+        self.juju_model = event.payload.info.name if event.payload else None
+
 
 class RawView(View):
     def subscribe(self):
@@ -414,6 +496,7 @@ class RawView(View):
 
     def show_log(self, e):
         print(e.payload.output)
+        sys.stdout.flush()
 
     def show_test(self, e):
         test = e.payload
@@ -427,17 +510,19 @@ class RawView(View):
             print("Run Complete")
             context = e.payload
             for test in context.suite:
-                print("{:18} {}".format(
-                    test.name, TEST_SYMBOLS[self.results[test.name]][1]))
+                result = TEST_SYMBOLS[self.results[test.name]][1]
+                msg = "{:18} {}".format(test.name, result)
+                print(msg)
             self.bus.shutdown()
+        sys.stdout.flush()
 
 
 class XUnitView(View):
-    def __init__(self, bus, filename):
+    def __init__(self, bus, context, filename):
         self.filename = filename
         self.results = []
         self.current_test = None
-        super().__init__(bus)
+        super().__init__(bus, context)
 
     def subscribe(self):
         self.bus.subscribe(self.start_test, eq("test.start"))
