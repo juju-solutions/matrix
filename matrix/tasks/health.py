@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 
 
 async def health(context, rule, task, event=None):
-    if not context.apps:
+    if not (context.juju_model and context.juju_model.applications):
         return True
     stable_period = timedelta(seconds=task.args.get('stability_period', 30))
     errored_apps = []
@@ -10,7 +10,9 @@ async def health(context, rule, task, event=None):
     errored_units = []
     busy_units = []
     settling_units = []
-    for app in context.apps:
+    for app in context.juju_model.applications.values():
+        if app.dead:
+            continue
         if app.status == 'error':
             errored_apps.append(app)
         elif app.status not in ('active', 'unknown', ''):

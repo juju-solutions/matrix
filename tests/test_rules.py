@@ -12,9 +12,9 @@ def test_parser():
     s = rules.load_suites([loader("rules.1.yaml")])
     # Suite should have one test with 3 rules
     assert len(s) == 3
-    assert len(s[0].rules) == 5
+    assert len(s[0].rules) == 4
     assert s[0].rules[0].task.command == 'matrix.tasks.deploy'
-    assert s[0].rules[-1].task.command == 'matrix.tasks.reset'
+    assert s[0].rules[-1].task.command == 'matrix.tasks.health'
 
     # test merge with overrides and adds
     s = rules.load_suites([loader("rules.1.yaml"), loader("rules.2.yaml")])
@@ -27,7 +27,8 @@ def test_parser():
 def test_rule_conditions():
     s = rules.load_suites([loader("rules.1.yaml")])
     context = model.Context(
-            loop=None, bus=None, config=None, juju_model=None,
+            loop=None, bus=None, config=None,
+            juju_controller=None,
             suite=s)
     context.states.update({"deploy": "complete"})
     t = s[0].rules

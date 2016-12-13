@@ -5,12 +5,9 @@ import logging.config
 from pathlib import Path
 from pkg_resources import resource_filename
 
-import urwid
-
 from .bus import Bus, set_default_bus
 from . import config
 from . import rules
-from .view import TUIView, RawView, XUnitView, NoopViewController, palette
 from . import utils
 
 
@@ -78,6 +75,13 @@ def setup(matrix, args=None):
                "        $ matrix -DB tests/matrix_extra.yaml\n"
                "\n",
     )
+    parser.add_argument("-c", "--controller", default=None,
+                        help="Controller to use (default: current)")
+    parser.add_argument("-m", "--model", default=None,
+                        help="Model to use instead of creating one per test")
+    parser.add_argument("-k", "--keep-models", action="store_true",
+                        default=False, help="Keep the created per-test models "
+                                            "for further inspection")
     parser.add_argument("-l", "--log-level", default=None)
     parser.add_argument("-L", "--log-name", nargs="*")
     parser.add_argument("-f", "--log-filter", nargs="*")
@@ -112,11 +116,6 @@ def setup(matrix, args=None):
     return options
 
 
-def unhandled(key):
-    if key == "ctrl c":
-        raise urwid.ExitMainLoop()
-
-
 def main(args=None):
     loop = asyncio.get_event_loop()
     bus = Bus(loop=loop)
@@ -127,27 +126,9 @@ def main(args=None):
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
 
-    if options.skin == "tui":
-        screen = urwid.raw_display.Screen()
-        screen.set_terminal_properties(256)
-        view = TUIView(bus, screen)
-        view_controller = urwid.MainLoop(
-            view.widgets,
-            palette,
-            screen=screen,
-            event_loop=urwid.AsyncioEventLoop(loop=loop),
-            unhandled_input=unhandled)
-    else:
-        view = RawView(bus)
-        view_controller = NoopViewController()
-
-    if options.xunit:
-        xunit = XUnitView(bus, options.xunit)  # noqa
 
     try:
-        view_controller.start()
         loop.create_task(matrix())
         loop.run_forever()
     finally:
-        view_controller.stop()
         loop.close()

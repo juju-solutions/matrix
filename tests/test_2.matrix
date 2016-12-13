@@ -15,9 +15,6 @@
       "do":
         "task": matrix.tasks.glitch
       "until": health.status.unhealthy
-    - "after": glitch.complete
-      "do":
-        "task": matrix.tasks.reset
 - "name": traffic
   "description": Traffic in the face of Chaos
   "rules":
@@ -36,6 +33,3 @@
       "do":
         "task": tests.traffic.test_traffic
       "until": glitch.complete
-    - "after": glitch.complete
-      "do":
-        "task": matrix.tasks.reset
