@@ -88,6 +88,7 @@ def setup(matrix, args=None):
     parser.add_argument("-s", "--skin", choices=("tui", "raw"), default="tui")
     parser.add_argument("-x", "--xunit", default=None, metavar='FILENAME',
                         help="Create an XUnit report file")
+    parser.add_argument("-F", "--fail-fast", action="store_true")
     parser.add_argument("-i", "--interval", default=5.0, type=float)
     parser.add_argument("-p", "--path", default=Path.cwd(), type=Path,
                         help="Path to local bundle to test "
@@ -125,7 +126,6 @@ def main(args=None):
     matrix = rules.RuleEngine(bus=bus)
     options = setup(matrix, args)
     loop.set_debug(options.log_level == logging.DEBUG)
-
 
     try:
         loop.create_task(matrix())

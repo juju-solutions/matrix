@@ -133,6 +133,11 @@ class ShutdownException(Exception):
     pass
 
 
+class TestFailure(Exception):
+    "Indicate that a test has failed"
+    pass
+
+
 class RuleEngine:
     def __init__(self, bus):
         self.loop = bus.loop
@@ -245,10 +250,10 @@ class RuleEngine:
                         log.debug("Unsubscribed 'on' event %s", rule)
                     break
                 elif period:
-                    # our example uses periodic to do health checks
-                    # in reality we will want rule_runner to block on
-                    # a lock/condition such that we don't progress testing
-                    # until we've assessed system health
+                    # our example uses periodic to do health checks in reality
+                    # we will want rule_runner to block on a lock/condition
+                    # such that we don't progress testing until we've assessed
+                    # system health
                     rule.lifecycle(context, PAUSED)
                     await asyncio.sleep(period, loop=self.loop)
                 else:
@@ -359,6 +364,11 @@ class RuleEngine:
             try:
                 await self.add_model(context)
                 await self.run_once(context, test)
+            except TestFailure:
+                self.handle_shutdown(None)
+                if self.fail_fast:
+                    log.info("Fail Fast on Test failure: %s" % test.name)
+                    break
             finally:
                 if not self.keep_models:
                     await self.destroy_model(context)
