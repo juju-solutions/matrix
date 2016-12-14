@@ -25,7 +25,9 @@ states and produce helpful logs.
 
 Install and run Matrix by doing the following:
 
-    sudo pip3 install 'git+https://github.com/juju-solutions/matrix.git'
+    git clone https://github.com/juju-solutions/matrix.git
+    cd matrix
+    sudo pip3 install . -f wheelhouse --no-index
     matrix -p /path/to/bundle
 
 This will run Matrix in interactive mode, with a terminal UI that shows
