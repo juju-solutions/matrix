@@ -138,7 +138,7 @@ tasks are
     matrix.tasks.glitch:
         applications: *all* | [by_name]
 
-Chaos internally might have a number of named components and mutation events
+Glitch internally might have a number of named components and mutation events
 that can be used to perturb the model. Configuration there of TBD.
 
 
@@ -152,6 +152,12 @@ context object is the rules Context object and rule is the current Rule
 instance. The object should return a boolean indicating if the rule is
 complete. If the task is designed to run via an 'until' condition it will be
 marked as complete after its task has been cancelled.
+
+Test failure can be indicated immediately by raising matrix.model.TestFailure
+which will fail the test and cancel any pending Tasks running related to it. If
+you wish to signal test failure from an executable (non-plugin) you can use the
+exit with any non-zero value and a TestFailure exception will automatically be
+raised.
 
 
 Interactions with other tools

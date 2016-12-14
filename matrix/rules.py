@@ -133,11 +133,6 @@ class ShutdownException(Exception):
     pass
 
 
-class TestFailure(Exception):
-    "Indicate that a test has failed"
-    pass
-
-
 class RuleEngine:
     def __init__(self, bus):
         self.loop = bus.loop
@@ -364,7 +359,7 @@ class RuleEngine:
             try:
                 await self.add_model(context)
                 await self.run_once(context, test)
-            except TestFailure:
+            except model.TestFailure:
                 self.handle_shutdown(None)
                 if self.fail_fast:
                     log.info("Fail Fast on Test failure: %s" % test.name)

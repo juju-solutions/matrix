@@ -20,6 +20,11 @@ _marker = object()
 log = logging.getLogger("matrix")
 
 
+class TestFailure(Exception):
+    "Indicate that a test has failed"
+    pass
+
+
 @attr.s
 class Event:
     """A local or remote event tied to the context timeline."""
@@ -211,7 +216,9 @@ class Task:
                 rule.log.debug(stdout.decode('utf-8'))
             if stderr:
                 rule.log.debug(stderr.decode('utf-8'))
-            result = p.returncode is 0
+            result = p.returncode == 0
+            if not result:
+                raise TestFailure
         except FileNotFoundError:
             log.warn("Task: {} not on path: {}".format(
                 self.cmd, path))
