@@ -22,6 +22,7 @@ SETUP = {
         ]
     },
     'install_requires': reqs,
+    'package_data': {'matrix': ['matrix.yaml']},
 }
 
 
