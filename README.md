@@ -19,22 +19,62 @@ a fresh codebase.
 Every effort should be made by the engine to correlate mutations to failure
 states and produce helpful logs.
 
-Quick Start
------------
+![Interactive Mode](matrix.png)
+
+## Running Matrix
+
+Install and run Matrix by doing the following:
+
+    sudo pip3 install 'git+https://github.com/juju-solutions/matrix.git'
+    matrix -p /path/to/bundle
+
+This will run Matrix in interactive mode, with a terminal UI that shows
+the progress of each test, their results, the status of the Juju model,
+and the Juju debug log.  If you prefer to use the non-interactive mode,
+invoke Matrix with the `raw` screen option:
+
+    matrix -p /path/to/bundle -s raw
+
+By default, Matrix runs its built-in suite of tests, along with a `matrix.yaml`
+test case if found in the bundle.  You can also pass in additional Matrix
+tests via the command line:
+
+    matrix -p /path/to/bundle /path/to/other/test.yaml
+
+See `matrix --help` for more information and invocation options.
+
+### Running against bundles from the store
+
+By itself, Matrix can only be run against local copies of bundles.  To run
+against a bundle in the store, you can use bundletester:
+
+    sudo pip2 install bundletester
+    sudo pip3 install 'git+https://github.com/juju-solutions/matrix.git'
+    bundletester -t cs:bundle/wiki-simple
+
+In addition to running the bundle and charm tests, bundletester will
+run Matrix on the bundle.  Note that it will not run it in interactive mode,
+so you will only see the end result.  The `matrix.log` and `glitch_plan.yaml`
+files will be available, however.
+
+### Running with the virtualenv
+
+If you're developing on Matrix, or don't want to install it on your base
+system, you can use Tox to run Matrix's unit tests and build a virtualenv
+from which you can run Matrix:
 
     git clone https://github.com/juju-solutions/matrix.git
     cd matrix/
-    tox
+    tox -r
     . .tox/py35/bin/activate
-    matrix tests/test_prog
+    matrix -p /path/to/bundle
 
-When you update the branch remove the .tox directory and re-run tox
+Note that if any of the requirements change, you will need to rebuild the
+virtualenv:
 
-    git pull
-    deactivate ## if in a tox virtualenv already
-    tox -r 
+    deactivate
+    tox -r
     . .tox/py35/bin/activate
-    matrix tests/test_prog
 
 
 High level Design
@@ -52,25 +92,25 @@ rules and states (similar to reactive and layer-cake).
             action: deploy
             version: current
         - do: test_traffic
-          until: chaos.done
+          until: glitch.complete
           after: deploy
         - do:
-            action: chaos
+            action: matrix.tasks.glitch
           while: test_traffic
         - do:
-            action: health
+            action: matrix.tasks.health
             periodic: 5
-          until: chaos.done
+          until: glitch.complete
 
 Given this YAML test definition fragment the intention here is as follows.
 Define a test relative to a bundle. Deploy that bundle, this will set a state
 triggering the next rule and invoking a traffic generating test. The traffic
 generating test should be run "until" a state is set (chaos.done) and may be
 invoked more than once by the engine. While the engine is running the traffic
-suite a state (test_traffic based on test name) will be set. This allows
+suite a state (`test_traffic` based on test name) will be set. This allows
 triggering of the "while" rule which launches another task (chaos) on the
 current deployment. When that task has done what it deems sufficient it can
-exit, which will stop the execution of the traffic test. 
+exit, which will stop the execution of the traffic test.
 
 Rules are evaluated continuously until the test completes and may run in
 parallel. Excessive used of parallelism can make failure analysis more
@@ -90,13 +130,12 @@ The system includes a number of built in tasks that are resolved from any do
 clause if no matching file is found in the tests directory. Currently these
 tasks are
 
-    deploy
+    matrix.tasks.deploy:
         version: *current* | prev
 
-    upgrade:
-        version: *current*
+    matrix.tasks.health
 
-    chaos:
+    matrix.tasks.glitch:
         applications: *all* | [by_name]
 
 Chaos internally might have a number of named components and mutation events
@@ -121,14 +160,15 @@ Interactions with other tools
 Matrix can be used with existing testing tools. More work around integration is
 coming, but currently it is simple enough to have matrix run an existing
 testing tool and design your test plans around that. It is also possible to
-have an external runner call matrix and depend on its return value.
+have an external runner call matrix and depend on its return value, such as
+running in bundletester mentioned above.
 
 The advantages of a system like Matrix are not only in a reusable suite of
 tests but in helping to extract information from the failure cases that can be
 used to improve both the charms and their upstream software in cases where that
 makes sense. Because of the developing approach to tying failures to properties
 of the model and the runtime there is more to be gleaned than a simple
-pass/fail gate. 
+pass/fail gate.
 
 When Matrix is complete it should provide more information about the runtime of
 your deployments than you'd normally have access to and should be seen as part
