@@ -229,8 +229,12 @@ class RuleEngine:
                     # RUN
                     # The rules conditions were met we should spawn
                     # the task and record states for it in context
-                    result = await rule.execute(context)
-                    # XXX: if result is False
+                    try:
+                        result = await rule.execute(context)
+                    except model.TestFailure as e:
+                        if e.task.gating is True:
+                            result = False
+                            rule.complete(context, True)
 
                 # EXIT
                 # An "until" rule will get cancelled when its condition is
@@ -359,9 +363,9 @@ class RuleEngine:
             try:
                 await self.add_model(context)
                 await self.run_once(context, test)
-            except model.TestFailure:
+            except model.TestFailure as e:
                 self.handle_shutdown(None)
-                if self.fail_fast:
+                if self.fail_fast and e.task.gating is True:
                     log.info("Fail Fast on Test failure: %s" % test.name)
                     break
             finally:

@@ -22,7 +22,8 @@ log = logging.getLogger("matrix")
 
 class TestFailure(Exception):
     "Indicate that a test has failed"
-    pass
+    def __init__(self, task):
+        self.task = task
 
 
 @attr.s
@@ -94,6 +95,7 @@ class Context:
 class Task:
     command = attr.ib(convert=str)
     args = attr.ib(default=attr.Factory(dict))
+    gating = attr.ib(default=True, convert=bool)
 
     @property
     def name(self):
