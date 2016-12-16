@@ -229,12 +229,7 @@ class RuleEngine:
                     # RUN
                     # The rules conditions were met we should spawn
                     # the task and record states for it in context
-                    try:
-                        result = await rule.execute(context)
-                    except model.TestFailure as e:
-                        if e.task.gating is True:
-                            result = False
-                            rule.complete(context, True)
+                    result = await rule.execute(context)
 
                 # EXIT
                 # An "until" rule will get cancelled when its condition is
@@ -257,13 +252,19 @@ class RuleEngine:
                     await asyncio.sleep(period, loop=self.loop)
                 else:
                     await asyncio.sleep(self.interval, loop=self.loop)
-            except asyncio.CancelledError:
-                log.debug("Cancelling %s %s", rule.name, context.states)
+            except (model.TestFailure, asyncio.CancelledError) as e:
                 rule.complete(context, True)
                 if subscription:
                     self.bus.unsubscribe(subscription)
                     result = True
                     log.debug("Unsubscribed 'on' event %s", rule)
+                if isinstance(e, model.TestFailure):
+                    self.bus.dispatch(
+                            kind="rule.done",
+                            payload=dict(rule=rule, result=result),
+                            origin=rule.name
+                            )
+                    raise e
                 break
 
         if result is None:
