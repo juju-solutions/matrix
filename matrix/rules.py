@@ -230,7 +230,6 @@ class RuleEngine:
                     # The rules conditions were met we should spawn
                     # the task and record states for it in context
                     result = await rule.execute(context)
-                    # XXX: if result is False
 
                 # EXIT
                 # An "until" rule will get cancelled when its condition is
@@ -245,21 +244,27 @@ class RuleEngine:
                         log.debug("Unsubscribed 'on' event %s", rule)
                     break
                 elif period:
-                    # our example uses periodic to do health checks
-                    # in reality we will want rule_runner to block on
-                    # a lock/condition such that we don't progress testing
-                    # until we've assessed system health
+                    # our example uses periodic to do health checks in reality
+                    # we will want rule_runner to block on a lock/condition
+                    # such that we don't progress testing until we've assessed
+                    # system health
                     rule.lifecycle(context, PAUSED)
                     await asyncio.sleep(period, loop=self.loop)
                 else:
                     await asyncio.sleep(self.interval, loop=self.loop)
-            except asyncio.CancelledError:
-                log.debug("Cancelling %s %s", rule.name, context.states)
+            except (model.TestFailure, asyncio.CancelledError) as e:
                 rule.complete(context, True)
                 if subscription:
                     self.bus.unsubscribe(subscription)
                     result = True
                     log.debug("Unsubscribed 'on' event %s", rule)
+                if isinstance(e, model.TestFailure):
+                    self.bus.dispatch(
+                            kind="rule.done",
+                            payload=dict(rule=rule, result=result),
+                            origin=rule.name
+                            )
+                    raise e
                 break
 
         if result is None:
@@ -359,6 +364,11 @@ class RuleEngine:
             try:
                 await self.add_model(context)
                 await self.run_once(context, test)
+            except model.TestFailure as e:
+                self.handle_shutdown(None)
+                if self.fail_fast and e.task.gating is True:
+                    log.info("Fail Fast on Test failure: %s" % test.name)
+                    break
             finally:
                 if not self.keep_models:
                     await self.destroy_model(context)
