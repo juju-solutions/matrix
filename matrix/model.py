@@ -188,7 +188,7 @@ class Task:
             result = await cmd(context, rule, self, event)
         return result
 
-    async def execute_process(self, context, cmd, rule, event=None):
+    async def execute_process(self, context, cmd, rule, event=None, env=None):
         def attr_filter(a, v):
             return a.repr is True
         data = attr.asdict(
@@ -202,15 +202,17 @@ class Task:
                     filter=attr_filter)
 
         data = json.dumps(data).encode("utf-8")
-        path = "{}:{}".format(str(context.config.path),
-                              os.environ.get("PATH", ""))
+        if not env:
+            path = "{}:{}".format(str(context.config.path),
+                                  os.environ.get("PATH", ""))
+            env = {"PATH": path}
         try:
             p = await asyncio.create_subprocess_exec(
-                    str(cmd),
+                    *cmd,
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    env={"PATH": path}
+                    env=env
                     )
             stdout, stderr = await p.communicate(data)
             log.debug("Exec %s -> %d", cmd, p.returncode)
@@ -220,10 +222,14 @@ class Task:
                 rule.log.debug(stderr.decode('utf-8'))
             result = p.returncode == 0
             if not result:
-                raise TestFailure
+                log.error("cmd failed: '{}'".format(cmd))
+                log.error("stdout: {}".format(stdout))
+                log.error("stderr: {}".format(stderr))
+                raise TestFailure(self)
         except FileNotFoundError:
-            log.warn("Task: {} not on path: {}".format(
-                self.cmd, path))
+            log.exception("Task: {} not on path: {}".format(
+                cmd, path))
+            raise TestFailure(self)
         return result
 
 

@@ -13,6 +13,9 @@
     - "after": health.status.healthy
       "do":
         "task": matrix.tasks.glitch
+    - "after": glitch.complete
+      "do":
+        "task": matrix.tasks.crashdump
 - "name": traffic
   "description": Traffic in the face of Chaos
   "rules":
@@ -30,3 +33,6 @@
     - "after": health.status.healthy
       "do":
         "task": matrix.tasks.glitch
+    - "after": glitch.complete
+      "do":
+        "task": matrix.tasks.crashdump
