@@ -206,6 +206,9 @@ class Task:
             path = "{}:{}".format(str(context.config.path),
                                   os.environ.get("PATH", ""))
             env = {"PATH": path}
+        else:
+            path = env.get("PATH")  # Needed for logging below
+
         try:
             p = await asyncio.create_subprocess_exec(
                     *cmd,

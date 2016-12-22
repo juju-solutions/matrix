@@ -34,7 +34,8 @@ async def crashdump(context, rule, task, event=None):
     cmd = [
         'gzip',
         'matrix.log',
-        '--force'  # matrix.log.gz is disposable
+        '--keep',
+        '--force',  # matrix.log.gz is disposable
     ]
     result = await task.execute_process(context, cmd, rule)
     rule.log.info("Crashdump COMPLETE")
