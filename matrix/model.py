@@ -202,7 +202,7 @@ class Task:
                     filter=attr_filter)
 
         data = json.dumps(data).encode("utf-8")
-        if not env:
+        if env is None:
             path = "{}:{}".format(str(context.config.path),
                                   os.environ.get("PATH", ""))
             env = {"PATH": path}
