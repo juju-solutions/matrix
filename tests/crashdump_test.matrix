@@ -6,5 +6,10 @@
     - "do":
         "task": matrix.tasks.deploy
     - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": crashdump.complete
+    - "after": health.status.healthy
       "do":
         "task": matrix.tasks.crashdump
