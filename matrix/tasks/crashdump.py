@@ -8,7 +8,7 @@ async def crashdump(context, rule, task, event=None):
     Will result in two files in the current working dir:
         matrix.log.gz
         juju-crashdump-<somehash>.tar.gz
-    
+
 
     TODO: give the operator some control over where these things get
     dumped (requires wiring up the log-name option for matrix, and
@@ -17,21 +17,25 @@ async def crashdump(context, rule, task, event=None):
 
     '''
     rule.log.info("Running crash dump")
+    rule.log.warning(
+        "Crashdump specified, but skipping juju-crashdump due to gh issue #59. "
+        "Will still save off matrix log."
+    )
     # Run juju-crashdump
-    cmd = [
-        'juju-crashdump',
-        '-m',
-        context.juju_model.info.name,
-    ]
-    result = await task.execute_process(context, cmd, rule, env=os.environ)
-    rule.log.info("Crashdump result: {}".format(result))
+    #cmd = [
+    #    'juju-crashdump',
+    #    '-m',
+    #    context.juju_model.info.name,
+    #]
+    #result = await task.execute_process(context, cmd, rule, env=os.environ)
+    #rule.log.info("Crashdump result: {}".format(result))
 
     # Zip up the matrix logs
     cmd = [
         'gzip',
         'matrix.log',
         '--force'  # matrix.log.gz is disposable
-    ]  
+    ]
     result = await task.execute_process(context, cmd, rule)
     rule.log.info("Crashdump COMPLETE")
     return True
