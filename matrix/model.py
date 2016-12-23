@@ -22,8 +22,9 @@ log = logging.getLogger("matrix")
 
 class TestFailure(Exception):
     "Indicate that a test has failed"
-    def __init__(self, task):
+    def __init__(self, task, message=None):
         self.task = task
+        self.message = message or "Test Failure"
 
 
 @attr.s

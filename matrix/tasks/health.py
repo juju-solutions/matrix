@@ -1,7 +1,12 @@
 from datetime import timedelta, datetime, timezone
+from matrix.model import TestFailure
 
 
 async def health(context, rule, task, event=None):
+
+    # Don't gate by default
+    task.gating = task.args.get('gating', False)
+
     if not (context.juju_model and context.juju_model.applications):
         return True
     stable_period = timedelta(seconds=task.args.get('stability_period', 30))
@@ -53,4 +58,9 @@ async def health(context, rule, task, event=None):
     else:
         _log = rule.log.info
     _log("Health check: %s", result)
+
+    if result == 'unhealthy' and task.gating:
+        rule.log.error("Raising TestFailure due to unhealthy status")
+        raise TestFailure(task, 'Health state was unhealthy')
+
     return True

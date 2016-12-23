@@ -1,0 +1,18 @@
+# Break all the things!
+actions:
+- action: reboot
+  selectors:
+  - {application: wiki, selector: units}
+  - {selector: one}
+- action: reboot
+  selectors:
+  - {application: wiki, selector: units}
+  - {selector: one}
+- action: reboot
+  selectors:
+  - {application: mysql, selector: units}
+  - {selector: one}
+- action: reboot
+  selectors:
+  - {application: mysql, selector: units}
+  - {selector: one}

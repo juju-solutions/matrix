@@ -1,0 +1,18 @@
+#!/usr/bin/env matrix
+"tests":
+- "name": Verify gating
+  "description": >
+    This test should fail! We're verifying that our gating on health works.
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+        "gating": true
+      "until": glitch.complete
+    - "after": health.status.healthy
+      "do":
+        "task": matrix.tasks.glitch
+        "plan": tests/test_health_gating_plan.yaml

@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import copy
 import logging
 import importlib
@@ -193,3 +194,64 @@ def translate_ansi_colors(entity):
         if part:
             results.append(part)
     return results
+
+
+async def execute_process(cmd, log):
+    p = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            )
+    stdout, stderr = await p.communicate()
+    log.debug("Exec %s -> %d", cmd, p.returncode)
+    if stdout:
+        log.debug(stdout.decode('utf-8'))
+    if stderr:
+        log.debug(stderr.decode('utf-8'))
+    return p.returncode == 0
+
+
+async def crashdump(log):
+    '''
+    Dump the logs from the running model.
+
+    Will result in two files in the current working dir:
+        matrix.log.gz
+        juju-crashdump-<somehash>.tar.gz
+
+
+    TODO: give the operator some control over where these things get
+    dumped (requires wiring up the log-name option for matrix, and
+    adding hooks in juju-crashdump to allow one to write dumps with
+    custom names, to custom directories.)
+
+    # TODO: only do this if a command line arg is specified
+
+    '''
+    log.info("Running crash dump")
+    log.warning(
+        "Crashdump specified, but skipping juju-crashdump due to gh issue #59. "
+        "Will still save off matrix log."
+    )
+    # Run juju-crashdump
+    #cmd = [
+    #    'juju-crashdump',
+    #    '-m',
+    #    context.juju_model.info.name,
+    #]
+    #result = await task.execute_process(cmd, log)
+    #log.info("Crashdump result: {}".format(result))
+
+    # Zip up the matrix logs
+    cmd = [
+        'gzip',
+        'matrix.log',
+        '--keep',
+        '--force',  # matrix.log.gz is disposable
+    ]
+    success = await execute_process(cmd, log)
+    if success:
+        log.info("Crashdump COMPLETE")
+    else:
+        log.info("Crashdump FAILED")

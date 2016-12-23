@@ -370,6 +370,10 @@ class RuleEngine:
                     log.info("Fail Fast on Test failure: %s" % test.name)
                     break
             finally:
+                try:
+                    await utils.crashdump(log=log)
+                except Exception as e:
+                    log.exception("Error while running crashdump.")
                 if not self.keep_models:
                     await self.destroy_model(context)
             context.states.clear()
