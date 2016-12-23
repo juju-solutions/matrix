@@ -4,9 +4,6 @@ from matrix.model import TestFailure
 
 async def health(context, rule, task, event=None):
 
-    # Don't gate by default
-    task.gating = task.args.get('gating', False)
-
     if not (context.juju_model and context.juju_model.applications):
         return True
     stable_period = timedelta(seconds=task.args.get('stability_period', 30))

@@ -4,6 +4,7 @@ import logging
 import logging.config
 from pathlib import Path
 from pkg_resources import resource_filename
+import sys
 
 from .bus import Bus, set_default_bus
 from . import config
@@ -132,3 +133,5 @@ def main(args=None):
         loop.run_forever()
     finally:
         loop.close()
+        if matrix.exit_code:
+            sys.exit(matrix.exit_code)

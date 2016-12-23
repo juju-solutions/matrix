@@ -9,5 +9,4 @@
       "periodic": 5
       "do":
         "task": matrix.tasks.health
-        "gating": true
       "until": health.status.healthy

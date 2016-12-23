@@ -4,9 +4,10 @@ import yaml
 
 from pathlib import Path
 
-from .selectors import Selectors
 from .actions import Actions
+from matrix.model import TestFailure
 from .plan import generate_plan, validate_plan
+from .selectors import Selectors
 
 
 log = logging.getLogger("glitch")
@@ -66,14 +67,12 @@ async def glitch(context, rule, task, event=None):
 
     model = context.juju_model
     config = context.config
-    # Don't gate by default
-    task.gating = task.args.get('gating', False)
 
     glitch_file = None
     if task.args.get('plan'):
         # If the user specifies {bundle}/some/path in matrix config,
         # replace 'bundle' with the path to the bundle.
-        task.args['plan'].format(bundle=config.path)
+        glitch_file = Path(task.args['plan'].format(bundle=config.path))
     elif config.glitch_plan:
         glitch_file = Path(config.glitch_plan)
 
@@ -115,12 +114,13 @@ async def glitch(context, rule, task, event=None):
             rule.log.error("Timeout running {}".format(actionf.__name__))
             errors = True
         except (TypeError, KeyError, AttributeError, IndexError) as e:
-            rule.log.error(
+            rule.log.exception(
                 "Exception while running {}: {} {}.".format(
                     actionf.__name__, type(e), e))
             errors = True
         if errors and task.gating:
-            raise TestFailure(task, "Exceptions were raised during glitch run.")
+            raise TestFailure(
+                task, "Exceptions were raised during glitch run.")
 
         context.bus.dispatch(
             origin="glitch",

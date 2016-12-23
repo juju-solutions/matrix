@@ -141,6 +141,7 @@ class RuleEngine:
         self.jobs = []
         self._reported = False
         self._should_run = True
+        self.exit_code = None
 
     def load_suite(self):
         filenames = []
@@ -368,6 +369,7 @@ class RuleEngine:
                 self.handle_shutdown(None)
                 if self.fail_fast and e.task.gating is True:
                     log.info("Fail Fast on Test failure: %s" % test.name)
+                    self.exit_code = 1
                     break
             finally:
                 try:
