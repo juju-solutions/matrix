@@ -78,6 +78,14 @@ virtualenv:
     tox -r
     . .tox/py35/bin/activate
 
+Matrix also includes a full-stack test, which requires you to pass in a
+controller name to run:
+
+    tox -- -s --controller=lxd
+
+Note that this takes some time, as it runs the default Matrix test suite
+against a trivial bundle.
+
 
 High level Design
 ------------------

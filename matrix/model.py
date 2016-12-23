@@ -74,11 +74,11 @@ class Context:
         # Cancel any tasks blocked on this state/value
         # combination
         if self.waiters:
-            if "." not in name:
-                waitname = ".".join((name, value))
-            else:
-                waitname = name
-            for t, owner in self.waiters.get(waitname, []):
+            waiters = self.waiters.get(".".join((name, value)), [])
+            if COMPLETE == value:
+                # allow "until: foo" as a shorthand for "until: foo.complete"
+                waiters.extend(self.waiters.get(name, []))
+            for t, owner in waiters:
                 t.cancel()
         if old_value != value:
             self.bus.dispatch(kind="state.change",

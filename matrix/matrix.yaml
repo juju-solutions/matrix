@@ -1,7 +1,7 @@
 #!/usr/bin/env matrix
 "tests":
 - "name": deployment
-  "description": Deploy with Glitches
+  "description": Basic Deployment
   "rules":
     - "do":
         "task": matrix.tasks.deploy
@@ -9,10 +9,7 @@
       "periodic": 5
       "do":
         "task": matrix.tasks.health
-      "until": glitch.complete
-    - "after": health.status.healthy
-      "do":
-        "task": matrix.tasks.glitch
+      "until": health.status.healthy
 - "name": traffic
   "description": Traffic in the face of Chaos
   "rules":

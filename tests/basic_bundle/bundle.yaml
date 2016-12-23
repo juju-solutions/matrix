@@ -1,0 +1,4 @@
+services:
+  ubuntu:
+    charm: "cs:xenial/ubuntu"
+    num_units: 1
