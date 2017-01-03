@@ -265,6 +265,10 @@ class RuleEngine:
                             payload=dict(rule=rule, result=result),
                             origin=rule.name
                             )
+                    if e.task.gating is True:
+                        # Set us up to report the failure in a command
+                        # line tool friendly way.
+                        self.exit_code = 1
                     raise e
                 break
 
@@ -326,6 +330,7 @@ class RuleEngine:
                 log.error("Exception processing test: %s\n%s",
                           test.name,
                           s.getvalue())
+
         else:
             success = all([bool(t.result()) for t in done])
         log.debug("%s Complete %s %s", test.name, success, context.states)
@@ -366,6 +371,11 @@ class RuleEngine:
                 await self.add_model(context)
                 await self.run_once(context, test)
             except model.TestFailure as e:
+                # TODO: I'm not sure that this code is actually
+                # reacheable, as we catch TestFailure in
+                # rule_runner. If there isn't another way for
+                # TestFailure to bubble up, we can get rid of this
+                # code.
                 self.handle_shutdown(None)
                 if self.fail_fast and e.task.gating is True:
                     log.info("Fail Fast on Test failure: %s" % test.name)
