@@ -330,7 +330,6 @@ class RuleEngine:
                 log.error("Exception processing test: %s\n%s",
                           test.name,
                           s.getvalue())
-
         else:
             success = all([bool(t.result()) for t in done])
         log.debug("%s Complete %s %s", test.name, success, context.states)
@@ -370,17 +369,6 @@ class RuleEngine:
             try:
                 await self.add_model(context)
                 await self.run_once(context, test)
-            except model.TestFailure as e:
-                # TODO: I'm not sure that this code is actually
-                # reacheable, as we catch TestFailure in
-                # rule_runner. If there isn't another way for
-                # TestFailure to bubble up, we can get rid of this
-                # code.
-                self.handle_shutdown(None)
-                if self.fail_fast and e.task.gating is True:
-                    log.info("Fail Fast on Test failure: %s" % test.name)
-                    self.exit_code = 1
-                    break
             finally:
                 try:
                     await utils.crashdump(log=log)
