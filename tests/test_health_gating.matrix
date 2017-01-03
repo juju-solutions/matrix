@@ -16,3 +16,15 @@
         "task": matrix.tasks.glitch
         "plan": tests/test_health_gating_plan.yaml
       "gating": false
+- "name": deployment
+  "description": >
+    Verify that we preserve our failure from above in the exit code,
+    even if we have a test like this that succeeds.
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": health.status.healthy
