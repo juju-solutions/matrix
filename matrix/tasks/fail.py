@@ -10,8 +10,8 @@ async def fail(context, rule, task, event=None):
     rule.log.debug("Gating is {}".format(task.gating))
 
     message = "Deliberate Test Failure"
-    
-    if task.args.get('exception_type') == 'TestFailure':
-        raise TestFailure(task, message=message)
-    else:
+
+    if task.args.get('generic_exception'):
         raise Exception(message)
+    else:
+        raise TestFailure(task, message=message)

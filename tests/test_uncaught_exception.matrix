@@ -6,4 +6,4 @@
   "rules":
     - "do":
         "task": matrix.tasks.fail
-
+        "generic_exception": true

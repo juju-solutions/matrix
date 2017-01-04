@@ -322,25 +322,22 @@ class RuleEngine:
         exceptions = [(t, t.exception()) for t in done if t.exception()]
         if exceptions:
             for t, e in exceptions:
-                s = io.StringIO()
-                t.print_stack(file=s)
-                log.error("Exception processing test: %s\n%s",
-                          test.name,
-                          s.getvalue())
-                # Set a non zero exit code if a gating test failed
-                # with a TestFailure.
                 if type(e) is model.TestFailure:
                     if e.task.gating is True:
                         log.error(
                             "Setting exit code 1 due to gating TestFailure.")
                         self.exit_code = 1
                     else:
-                        pass
+                        log.error("Skipping non gating test failure.")
+
                 else:
-                    # Uncaught exceptions should also give us a non
-                    # zero exit code.
+                    s = io.StringIO()
+                    t.print_stack(file=s)
+                    log.error("Exception processing test: %s\n%s",
+                              test.name,
+                              s.getvalue())
                     log.error(
-                        "Setting exit code to 1 due to uncaught Exception.")
+                        "Setting exit code to 1.")
                     self.exit_code = 1
 
         else:

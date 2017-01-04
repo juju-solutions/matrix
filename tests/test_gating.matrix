@@ -6,4 +6,3 @@
   "rules":
     - "do":
         "task": matrix.tasks.fail
-        "exception_type": "TestFailure"
