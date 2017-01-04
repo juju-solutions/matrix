@@ -329,9 +329,9 @@ class RuleEngine:
                 # Set a non zero exit code if a gating test failed
                 # with a TestFailure.
                 if type(t.exception()) is model.TestFailure:
-                    log.error(
-                        "Setting exit code to 1 due to gating TestFailure.")
                     if t.exception().task.gating is True:
+                        log.error(
+                            "Setting exit code to 1 due to gating TestFailure.")
                         self.exit_code = 1
                 else:
                     # Uncaught exceptions should also give us a non
