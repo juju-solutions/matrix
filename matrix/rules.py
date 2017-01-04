@@ -64,32 +64,32 @@ class Test:
             self.description = desc
 
         for d in data['rules']:
-                aspec = d.get("do")
-                if not aspec:
-                    raise ValueError(
-                            "'do' clause required for each rule: %s" % d)
-                if isinstance(aspec, dict):
-                    # Create valid Task instance
-                    do = aspec.pop("task")
-                else:
-                    do = aspec
-                    aspec = {}
-                task = model.Task(do, aspec)
+            aspec = d.get("do")
+            if not aspec:
+                raise ValueError(
+                    "'do' clause required for each rule: %s" % d)
+            if isinstance(aspec, dict):
+                # Create valid Task instance
+                do = aspec.pop("task")
+            else:
+                do = aspec
+                aspec = {}
+            task = model.Task(do, aspec)
 
-                conditions = []
-                for phase in ["when", "after", "until",
-                              "while", "on", "periodic"]:
-                    # create valid Condition instances
-                    if phase not in d:
-                        continue
-                    v = d.get(phase)
-                    if v:
-                        conditions.append(
-                                model.Condition(
-                                    mode=phase,
-                                    statement=v))
+            conditions = []
+            for phase in ["when", "after", "until",
+                          "while", "on", "periodic"]:
+                # create valid Condition instances
+                if phase not in d:
+                    continue
+                v = d.get(phase)
+                if v:
+                    conditions.append(
+                            model.Condition(
+                                mode=phase,
+                                statement=v))
 
-                self.rules.append(model.Rule(task, conditions))
+            self.rules.append(model.Rule(task, conditions))
 
     def match(self, context):
         """Return list of matching rules given context"""
