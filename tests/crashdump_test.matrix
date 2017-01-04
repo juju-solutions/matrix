@@ -1,0 +1,12 @@
+#!/usr/bin/env matrix
+"tests":
+- "name": crash dump
+  "description": Deploy, and do a crash dump
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": health.status.healthy

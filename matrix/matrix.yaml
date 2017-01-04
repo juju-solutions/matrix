@@ -19,6 +19,7 @@
       "periodic": 5
       "do":
         "task": matrix.tasks.health
+      "gating": false
       "until": glitch.complete
     - "after": health.status.healthy
       "do":
@@ -27,3 +28,4 @@
     - "after": health.status.healthy
       "do":
         "task": matrix.tasks.glitch
+      "gating": false

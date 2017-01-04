@@ -65,6 +65,7 @@ class Test:
 
         for d in data['rules']:
             aspec = d.get("do")
+            gating = d.get("gating", True)            
             if not aspec:
                 raise ValueError(
                     "'do' clause required for each rule: %s" % d)
@@ -74,7 +75,7 @@ class Test:
             else:
                 do = aspec
                 aspec = {}
-            task = model.Task(do, aspec)
+            task = model.Task(do, aspec, gating)
 
             conditions = []
             for phase in ["when", "after", "until",
@@ -141,6 +142,7 @@ class RuleEngine:
         self.jobs = []
         self._reported = False
         self._should_run = True
+        self.exit_code = None
 
     def load_suite(self):
         filenames = []
@@ -317,14 +319,27 @@ class RuleEngine:
             # can we do anything here
             log.warn("Pending tasks remain, aborting due to failure")
 
-        exceptions = [t for t in done if t.exception()]
+        exceptions = [(t, t.exception()) for t in done if t.exception()]
         if exceptions:
-            for t in exceptions:
-                s = io.StringIO()
-                t.print_stack(file=s)
-                log.error("Exception processing test: %s\n%s",
-                          test.name,
-                          s.getvalue())
+            for t, e in exceptions:
+                if type(e) is model.TestFailure:
+                    if e.task.gating is True:
+                        log.error(
+                            "Setting exit code 1 due to gating TestFailure.")
+                        self.exit_code = 1
+                    else:
+                        log.error("Skipping non gating test failure.")
+
+                else:
+                    s = io.StringIO()
+                    t.print_stack(file=s)
+                    log.error("Exception processing test: %s\n%s",
+                              test.name,
+                              s.getvalue())
+                    log.error(
+                        "Setting exit code to 1.")
+                    self.exit_code = 1
+
         else:
             success = all([bool(t.result()) for t in done])
         log.debug("%s Complete %s %s", test.name, success, context.states)
@@ -364,12 +379,11 @@ class RuleEngine:
             try:
                 await self.add_model(context)
                 await self.run_once(context, test)
-            except model.TestFailure as e:
-                self.handle_shutdown(None)
-                if self.fail_fast and e.task.gating is True:
-                    log.info("Fail Fast on Test failure: %s" % test.name)
-                    break
             finally:
+                try:
+                    await utils.crashdump(log=log)
+                except Exception as e:
+                    log.exception("Error while running crashdump.")
                 if not self.keep_models:
                     await self.destroy_model(context)
             context.states.clear()

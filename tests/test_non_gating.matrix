@@ -1,0 +1,9 @@
+#!/usr/bin/env matrix
+"tests":
+- "name": Verify that we can turn gating off.
+  "description": >
+    This test succeeds if matrix exits with a zero exit code.
+  "rules":
+    - "do":
+        "task": matrix.tasks.fail
+      "gating": false
