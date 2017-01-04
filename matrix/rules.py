@@ -265,10 +265,6 @@ class RuleEngine:
                             payload=dict(rule=rule, result=result),
                             origin=rule.name
                             )
-                    if e.task.gating is True:
-                        # Set us up to report the failure in a command
-                        # line tool friendly way.
-                        self.exit_code = 1
                     raise e
                 break
 
@@ -330,6 +326,20 @@ class RuleEngine:
                 log.error("Exception processing test: %s\n%s",
                           test.name,
                           s.getvalue())
+                # Set a non zero exit code if a gating test failed
+                # with a TestFailure.
+                if type(t.exception()) is model.TestFailure:
+                    log.error(
+                        "Setting exit code to 1 due to gating TestFailure.")
+                    if t.exception().task.gating is True:
+                        self.exit_code = 1
+                else:
+                    # Uncaught exceptions should also give us a non
+                    # zero exit code.
+                    log.error(
+                        "Setting exit code to 1 due to uncaught Exception.")
+                    self.exit_code = 1
+
         else:
             success = all([bool(t.result()) for t in done])
         log.debug("%s Complete %s %s", test.name, success, context.states)
