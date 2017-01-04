@@ -10,3 +10,20 @@
       "do":
         "task": matrix.tasks.health
       "until": health.status.healthy
+- "name": traffic
+  "description": Traffic in the face of Chaos
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": glitch.complete
+    - "after": health.status.healthy
+      "do":
+        "task": tests.traffic.test_traffic
+      "until": glitch.complete
+    - "after": health.status.healthy
+      "do":
+        "task": matrix.tasks.glitch

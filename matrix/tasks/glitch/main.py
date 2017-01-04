@@ -113,7 +113,7 @@ async def glitch(context, rule, task, event=None):
         except asyncio.TimeoutError:
             rule.log.error("Timeout running {}".format(actionf.__name__))
             errors = True
-        except (TypeError, KeyError, AttributeError, IndexError) as e:
+        except Exception as e:
             rule.log.exception(
                 "Exception while running {}: {} {}.".format(
                     actionf.__name__, type(e), e))
