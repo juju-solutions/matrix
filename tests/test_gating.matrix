@@ -1,0 +1,9 @@
+#!/usr/bin/env matrix
+"tests":
+- "name": Verify gating
+  "description": >
+    This test succeeds if matrix exits with a non zero exit code.
+  "rules":
+    - "do":
+        "task": matrix.tasks.fail
+        "exception_type": "TestFailure"

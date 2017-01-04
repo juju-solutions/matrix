@@ -65,6 +65,7 @@ class Test:
 
         for d in data['rules']:
             aspec = d.get("do")
+            gating = d.get("gating", True)            
             if not aspec:
                 raise ValueError(
                     "'do' clause required for each rule: %s" % d)
@@ -74,7 +75,7 @@ class Test:
             else:
                 do = aspec
                 aspec = {}
-            task = model.Task(do, aspec)
+            task = model.Task(do, aspec, gating)
 
             conditions = []
             for phase in ["when", "after", "until",
@@ -318,9 +319,9 @@ class RuleEngine:
             # can we do anything here
             log.warn("Pending tasks remain, aborting due to failure")
 
-        exceptions = [t for t in done if t.exception()]
+        exceptions = [(t, t.exception()) for t in done if t.exception()]
         if exceptions:
-            for t in exceptions:
+            for t, e in exceptions:
                 s = io.StringIO()
                 t.print_stack(file=s)
                 log.error("Exception processing test: %s\n%s",
@@ -328,11 +329,13 @@ class RuleEngine:
                           s.getvalue())
                 # Set a non zero exit code if a gating test failed
                 # with a TestFailure.
-                if type(t.exception()) is model.TestFailure:
-                    if t.exception().task.gating is True:
+                if type(e) is model.TestFailure:
+                    if e.task.gating is True:
                         log.error(
-                            "Setting exit code to 1 due to gating TestFailure.")
+                            "Setting exit code 1 due to gating TestFailure.")
                         self.exit_code = 1
+                    else:
+                        pass
                 else:
                     # Uncaught exceptions should also give us a non
                     # zero exit code.
