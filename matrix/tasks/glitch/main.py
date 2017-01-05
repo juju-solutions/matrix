@@ -87,8 +87,12 @@ async def glitch(context, rule, task, event=None):
             num=int(config.glitch_num))
         glitch_plan = validate_plan(glitch_plan)
 
-        rule.log.info("Writing glitch plan to {}".format(config.glitch_output))
-        with open(config.glitch_output, 'w') as output_file:
+        if config.output_dir:
+            glitch_output = Path(config.output_dir, config.glitch_output)
+        else:
+            glitch_output = Path(config.glitch_output)
+        rule.log.info("Writing glitch plan to {}".format(glitch_output))
+        with glitch_output.open('w') as output_file:
             output_file.write(yaml.dump(glitch_plan))
 
     # Execute glitch plan. We perform destructive operations here!
