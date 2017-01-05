@@ -378,29 +378,29 @@ class RuleEngine:
                 log.error('Error adding model: %s', e)
                 self.exit_code = 200
             else:
+                success = await self.run_once(context, test)
+            finally:
+                log.debug("%s Complete %s %s",
+                          test.name, success, context.states)
+                self.bus.dispatch(
+                        kind="test.complete",
+                        origin="matrix",
+                        payload=dict(test=test, result=success))
+                context.states.clear()
+                context.waiters.clear()
                 try:
-                    success = await self.run_once(context, test)
-                finally:
+                    await utils.crashdump(
+                        log=log,
+                        tag=context.juju_model.info.name,
+                        directory=context.config.output_dir
+                    )
+                except Exception as e:
+                    log.exception("Error while running crashdump.")
+                if not self.keep_models:
                     try:
-                        await utils.crashdump(
-                            log=log,
-                            tag=context.juju_model.info.name,
-                            directory=context.config.output_dir
-                        )
+                        await self.destroy_model(context)
                     except Exception as e:
-                        log.exception("Error while running crashdump.")
-                    if not self.keep_models:
-                        try:
-                            await self.destroy_model(context)
-                        except Exception as e:
-                            log.error('Error destroying model: %s', e)
-            log.debug("%s Complete %s %s", test.name, success, context.states)
-            self.bus.dispatch(
-                    kind="test.complete",
-                    origin="matrix",
-                    payload=dict(test=test, result=success))
-            context.states.clear()
-            context.waiters.clear()
+                        log.error('Error destroying model: %s', e)
         self.bus.dispatch(
                 origin="matrix",
                 kind="test.finish",
@@ -416,15 +416,38 @@ class RuleEngine:
             await asyncio.wait_for(
                 context.juju_model.connect_model(self.model), 30)
         else:
+            # work-around for: https://bugs.launchpad.net/juju/+bug/1652171
+            credential = await self._get_credential(context)
             name = "matrix-{}".format(petname.Generate(2, '-'))
             log.info("Creating model %s", name)
             context.juju_model = await asyncio.wait_for(
-                context.juju_controller.add_model(name), 30)
+                context.juju_controller.add_model(
+                    name, credential_name=credential,
+                ), 30)
         self.bus.dispatch(
             origin="matrix",
             payload=context.juju_model,
             kind="model.new",
         )
+
+    async def _get_credential(self, context):
+        """
+        Determine the credential to use for the current controller.
+
+        This is a work-around for https://bugs.launchpad.net/juju/+bug/1652171
+        """
+        cloud = await context.juju_controller.get_cloud()
+        creds_file = Path('~/.local/share/juju/credentials.yaml').expanduser()
+        creds = yaml.safe_load(creds_file.read_text())['credentials']
+        if cloud not in creds:
+            raise ValueError('No credentials for cloud: %s' % cloud)
+        if 'default-credential' in creds[cloud]:
+            return creds[cloud]['default-credential']
+        elif len(creds[cloud]) == 1:
+            return list(creds[cloud].keys())[0]
+        else:
+            raise ValueError('Multiple credentials available for '
+                             'cloud %s with no default set' % cloud)
 
     async def destroy_model(self, context):
         if self.model or not context.juju_model:
