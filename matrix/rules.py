@@ -65,7 +65,7 @@ class Test:
 
         for d in data['rules']:
             aspec = d.get("do")
-            gating = d.get("gating", True)            
+            gating = d.get("gating", True)
             if not aspec:
                 raise ValueError(
                     "'do' clause required for each rule: %s" % d)
@@ -342,11 +342,6 @@ class RuleEngine:
 
         else:
             success = all([bool(t.result()) for t in done])
-        log.debug("%s Complete %s %s", test.name, success, context.states)
-        self.bus.dispatch(
-                kind="test.complete",
-                origin="matrix",
-                payload=dict(test=test, result=success))
         return success
 
     async def run(self, context):
@@ -376,10 +371,23 @@ class RuleEngine:
                 payload=context.suite)
         for test in context.suite:
             context.test = test
+            success = False
             try:
                 await self.add_model(context)
-                await self.run_once(context, test)
+            except Exception as e:
+                log.error('Error adding model: %s', e)
+                self.exit_code = 200
+            else:
+                success = await self.run_once(context, test)
             finally:
+                log.debug("%s Complete %s %s",
+                          test.name, success, context.states)
+                self.bus.dispatch(
+                        kind="test.complete",
+                        origin="matrix",
+                        payload=dict(test=test, result=success))
+                context.states.clear()
+                context.waiters.clear()
                 try:
                     await utils.crashdump(
                         log=log,
@@ -389,9 +397,10 @@ class RuleEngine:
                 except Exception as e:
                     log.exception("Error while running crashdump.")
                 if not self.keep_models:
-                    await self.destroy_model(context)
-            context.states.clear()
-            context.waiters.clear()
+                    try:
+                        await self.destroy_model(context)
+                    except Exception as e:
+                        log.error('Error destroying model: %s', e)
         self.bus.dispatch(
                 origin="matrix",
                 kind="test.finish",
@@ -407,15 +416,38 @@ class RuleEngine:
             await asyncio.wait_for(
                 context.juju_model.connect_model(self.model), 30)
         else:
+            # work-around for: https://bugs.launchpad.net/juju/+bug/1652171
+            credential = await self._get_credential(context)
             name = "matrix-{}".format(petname.Generate(2, '-'))
             log.info("Creating model %s", name)
             context.juju_model = await asyncio.wait_for(
-                context.juju_controller.add_model(name), 30)
+                context.juju_controller.add_model(
+                    name, credential_name=credential,
+                ), 30)
         self.bus.dispatch(
             origin="matrix",
             payload=context.juju_model,
             kind="model.new",
         )
+
+    async def _get_credential(self, context):
+        """
+        Determine the credential to use for the current controller.
+
+        This is a work-around for https://bugs.launchpad.net/juju/+bug/1652171
+        """
+        cloud = await context.juju_controller.get_cloud()
+        creds_file = Path('~/.local/share/juju/credentials.yaml').expanduser()
+        creds = yaml.safe_load(creds_file.read_text())['credentials']
+        if cloud not in creds:
+            raise ValueError('No credentials for cloud: %s' % cloud)
+        if 'default-credential' in creds[cloud]:
+            return creds[cloud]['default-credential']
+        elif len(creds[cloud]) == 1:
+            return list(creds[cloud].keys())[0]
+        else:
+            raise ValueError('Multiple credentials available for '
+                             'cloud %s with no default set' % cloud)
 
     async def destroy_model(self, context):
         if self.model or not context.juju_model:
