@@ -381,7 +381,11 @@ class RuleEngine:
                 await self.run_once(context, test)
             finally:
                 try:
-                    await utils.crashdump(log=log)
+                    await utils.crashdump(
+                        log=log,
+                        tag=context.juju_model.info.name,
+                        directory=context.config.output_dir
+                    )
                 except Exception as e:
                     log.exception("Error while running crashdump.")
                 if not self.keep_models:

@@ -14,6 +14,12 @@ from . import utils
 
 def configLogging(options):
     logging.captureWarnings(True)
+    if options.output_dir:
+        # Set output dir for log.
+        config.LoggingConfig['handlers']['file']['filename'] = str(Path(
+            options.output_dir,
+            config.LoggingConfig['handlers']['file']['filename']))
+
     logging.config.dictConfig(config.LoggingConfig)
 
     root_logger = logging.getLogger()
@@ -83,9 +89,17 @@ def setup(matrix, args=None):
     parser.add_argument("-k", "--keep-models", action="store_true",
                         default=False, help="Keep the created per-test models "
                                             "for further inspection")
-    parser.add_argument("-l", "--log-level", default=None)
-    parser.add_argument("-L", "--log-name", nargs="*")
-    parser.add_argument("-f", "--log-filter", nargs="*")
+    parser.add_argument("-l", "--log-level", default=None,
+                        help="Set log level.")
+    parser.add_argument("-L", "--log-name", nargs="*",
+                        help="If specified, log-level param will only "
+                             "apply to the named internal log.")
+    parser.add_argument("-f", "--log-filter", nargs="*",
+                        help="Specify a custom log filter.")
+    parser.add_argument("-d", "--output-dir", default=None,
+                        help="Directory that should contain logs, "
+                             "glitch plans, and other artifacts. Defaults "
+                             "to the current working dir.")
     parser.add_argument("-s", "--skin", choices=("tui", "raw"), default="tui")
     parser.add_argument("-x", "--xunit", default=None, metavar='FILENAME',
                         help="Create an XUnit report file")

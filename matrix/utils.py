@@ -5,6 +5,7 @@ import logging
 import importlib
 import re
 import textwrap
+from pathlib import Path
 
 import urwid
 
@@ -212,7 +213,7 @@ async def execute_process(cmd, log):
     return p.returncode == 0
 
 
-async def crashdump(log):
+async def crashdump(log, tag, directory=None):
     '''
     Dump the logs from the running model.
 
@@ -220,11 +221,6 @@ async def crashdump(log):
         matrix.log.gz
         juju-crashdump-<somehash>.tar.gz
 
-
-    TODO: give the operator some control over where these things get
-    dumped (requires wiring up the log-name option for matrix, and
-    adding hooks in juju-crashdump to allow one to write dumps with
-    custom names, to custom directories.)
 
     # TODO: only do this if a command line arg is specified
 
@@ -243,13 +239,23 @@ async def crashdump(log):
     #result = await task.execute_process(cmd, log)
     #log.info("Crashdump result: {}".format(result))
 
-    # Zip up the matrix logs
+    # Wrap the logs and glitch plan (if any) up in a tarball.
+    logfile = 'matrix.log'
+    plan = 'glitch_plan.yaml'
+    tarball = 'matrix_{}.tar.gz'.format(tag)
+    if directory:
+        tarball = str(Path(directory, tarball))
+
     cmd = [
-        'gzip',
-        'matrix.log',
-        '--keep',
-        '--force',  # matrix.log.gz is disposable
+        'tar',
+        'czf',
+        tarball,
+        "-C", directory or ".",
+        logfile
     ]
+    if Path(plan).exists() or (directory and Path(directory, plan).exists()):
+        cmd.append(plan)
+
     success = await execute_process(cmd, log)
     if success:
         log.info("Crashdump COMPLETE")
