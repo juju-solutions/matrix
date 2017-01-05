@@ -65,7 +65,7 @@ class Test:
 
         for d in data['rules']:
             aspec = d.get("do")
-            gating = d.get("gating", True)            
+            gating = d.get("gating", True)
             if not aspec:
                 raise ValueError(
                     "'do' clause required for each rule: %s" % d)
@@ -342,11 +342,6 @@ class RuleEngine:
 
         else:
             success = all([bool(t.result()) for t in done])
-        log.debug("%s Complete %s %s", test.name, success, context.states)
-        self.bus.dispatch(
-                kind="test.complete",
-                origin="matrix",
-                payload=dict(test=test, result=success))
         return success
 
     async def run(self, context):
@@ -376,16 +371,30 @@ class RuleEngine:
                 payload=context.suite)
         for test in context.suite:
             context.test = test
+            success = False
             try:
                 await self.add_model(context)
-                await self.run_once(context, test)
-            finally:
+            except Exception as e:
+                log.error('Error adding model: %s', e)
+                self.exit_code = 200
+            else:
                 try:
-                    await utils.crashdump(log=log)
-                except Exception as e:
-                    log.exception("Error while running crashdump.")
-                if not self.keep_models:
-                    await self.destroy_model(context)
+                    success = await self.run_once(context, test)
+                finally:
+                    try:
+                        await utils.crashdump(log=log)
+                    except Exception as e:
+                        log.exception("Error while running crashdump.")
+                    if not self.keep_models:
+                        try:
+                            await self.destroy_model(context)
+                        except Exception as e:
+                            log.error('Error destroying model: %s', e)
+            log.debug("%s Complete %s %s", test.name, success, context.states)
+            self.bus.dispatch(
+                    kind="test.complete",
+                    origin="matrix",
+                    payload=dict(test=test, result=success))
             context.states.clear()
             context.waiters.clear()
         self.bus.dispatch(
