@@ -242,6 +242,8 @@ async def crashdump(log, tag, directory=None):
     # Wrap the logs and glitch plan (if any) up in a tarball.
     logfile = 'matrix.log'
     plan = 'glitch_plan.yaml'
+    if tag.startswith("matrix-"):
+        tag = tag[7:]  # Strip off extra "matrix"
     tarball = 'matrix_{}.tar.gz'.format(tag)
     if directory:
         tarball = str(Path(directory, tarball))
