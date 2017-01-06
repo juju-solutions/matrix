@@ -78,6 +78,8 @@ virtualenv:
     tox -r
     . .tox/py35/bin/activate
 
+### Functional testing
+
 Matrix also includes a full-stack test, which requires you to pass in a
 controller name to run:
 
@@ -85,6 +87,12 @@ controller name to run:
 
 Note that this takes some time, as it runs the default Matrix test suite
 against a trivial bundle.
+
+If you want to do more thorough functional testing of the various
+quirks and corners of matrix, you can run the functional testing suite
+via tox like so:
+
+    tox -r -e functional -v
 
 
 High level Design
