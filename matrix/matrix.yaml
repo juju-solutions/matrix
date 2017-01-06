@@ -10,8 +10,8 @@
       "do":
         "task": matrix.tasks.health
       "until": health.status.healthy
-- "name": traffic
-  "description": Traffic in the face of Chaos
+- "name": end_to_end
+  "description": End-to-end test in the face of chaos
   "rules":
     - "do":
         "task": matrix.tasks.deploy
@@ -23,7 +23,7 @@
       "until": glitch.complete
     - "after": health.status.healthy
       "do":
-        "task": tests.traffic.test_traffic
+        "task": matrix.tasks.end_to_end
       "until": glitch.complete
     - "after": health.status.healthy
       "do":

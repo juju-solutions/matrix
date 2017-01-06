@@ -437,8 +437,13 @@ class RuleEngine:
         This is a work-around for https://bugs.launchpad.net/juju/+bug/1652171
         """
         cloud = await context.juju_controller.get_cloud()
+        if cloud in ('localhost', 'lxd'):
+            return None
         creds_file = Path('~/.local/share/juju/credentials.yaml').expanduser()
-        creds = yaml.safe_load(creds_file.read_text())['credentials']
+        if creds_file.exists():
+            creds = yaml.safe_load(creds_file.read_text())['credentials']
+        else:
+            creds = {}
         if cloud not in creds:
             raise ValueError('No credentials for cloud: %s' % cloud)
         if 'default-credential' in creds[cloud]:
