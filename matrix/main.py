@@ -4,6 +4,7 @@ import logging
 import logging.config
 from pathlib import Path
 from pkg_resources import resource_filename
+import os
 import sys
 
 from .bus import Bus, set_default_bus
@@ -96,7 +97,8 @@ def setup(matrix, args=None):
                              "apply to the named internal log.")
     parser.add_argument("-f", "--log-filter", nargs="*",
                         help="Specify a custom log filter.")
-    parser.add_argument("-d", "--output-dir", default=None,
+    parser.add_argument("-d", "--output-dir",
+                        default=os.getenv('MATRIX_OUTPUT_DIR'),
                         help="Directory that should contain logs, "
                              "glitch plans, and other artifacts. Defaults "
                              "to the current working dir.")
