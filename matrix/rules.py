@@ -383,29 +383,47 @@ class RuleEngine:
                 log.debug("%s Complete %s %s",
                           test.name, success, context.states)
                 self.bus.dispatch(
-                        kind="test.complete",
-                        origin="matrix",
-                        payload=dict(test=test, result=success))
-                context.states.clear()
-                context.waiters.clear()
-                try:
-                    await utils.crashdump(
-                        log=log,
-                        model_name=context.juju_model.info.name,
-                        directory=context.config.output_dir
-                    )
-                except Exception as e:
-                    log.exception("Error while running crashdump.")
-                if not self.keep_models:
-                    try:
-                        await self.destroy_model(context)
-                    except Exception as e:
-                        log.error('Error destroying model: %s', e)
+                    kind="test.complete",
+                    origin="matrix",
+                    payload=dict(test=test, result=success))
+                await self.cleanup(context)
         self.bus.dispatch(
                 origin="matrix",
                 kind="test.finish",
                 payload=context
         )
+
+    async def cleanup(self, context, max_retries=10, backoff_const=0.01):
+        '''
+        Clean up our context, dump testing artifacts (if any), and destroy
+        the model that we created for the given context.
+
+        '''
+        context.states.clear()
+        context.waiters.clear()
+        try:
+            await utils.crashdump(
+                log=log,
+                model_name=context.juju_model.info.name,
+                directory=context.config.output_dir
+            )
+        except Exception as e:
+            log.exception("Error while running crashdump.")
+        if not self.keep_models:
+            retries = 0
+            while True:
+                try:
+                    await self.destroy_model(context)
+                    break
+                except Exception as e:
+                    log.error('Error destroying model: %s', e)
+                    retries += 1
+                    if retries >= max_retries:
+                        break
+                    else:
+                        wait = pow(2, retries) * backoff_const
+                        log.error('Retrying in %s seconds', wait)
+                        await asyncio.sleep(wait)
 
     async def add_model(self, context):
         if self.model:
