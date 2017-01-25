@@ -393,6 +393,17 @@ class RuleEngine:
                 payload=context
         )
 
+    async def connect_controller(self, context):
+        '''
+        Connect to a juju controller.
+
+        '''
+        if self.controller:
+            await context.juju_controller.connect_controller(
+                self.controller)
+        else:
+            await context.juju_controller.connect_current()
+
     async def cleanup(self, context, max_retries=10, backoff_const=0.01):
         '''
         Clean up our context, dump testing artifacts (if any), and destroy
@@ -416,7 +427,7 @@ class RuleEngine:
                     await self.destroy_model(context)
                     break
                 except Exception as e:
-                    log.error('Error destroying model: %s', e)
+                    log.exception('Error destroying model: %s', e)
                     retries += 1
                     if retries >= max_retries:
                         break
@@ -424,6 +435,7 @@ class RuleEngine:
                         wait = pow(2, retries) * backoff_const
                         log.error('Retrying in %s seconds', wait)
                         await asyncio.sleep(wait)
+                        await self.connect_controller(context)
 
     async def add_model(self, context):
         if self.model:
@@ -543,11 +555,7 @@ class RuleEngine:
 
         try:
             view_controller.start()
-            if self.controller:
-                await context.juju_controller.connect_controller(
-                    self.controller)
-            else:
-                await context.juju_controller.connect_current()
+            await self.connect_controller(context)
             await self.run(context)
         finally:
             # Wait for any unprocessed events before exiting the loop
