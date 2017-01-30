@@ -198,6 +198,10 @@ def translate_ansi_colors(entity):
 
 
 async def execute_process(cmd, log):
+    '''
+    Execute an external process in a non blocking fashion.
+
+    '''
     p = await asyncio.create_subprocess_exec(
             *cmd,
             stdin=asyncio.subprocess.PIPE,
@@ -209,7 +213,7 @@ async def execute_process(cmd, log):
     if stdout:
         log.debug(stdout.decode('utf-8'))
     if stderr:
-        log.debug(stderr.decode('utf-8'))
+        log.error(stderr.decode('utf-8'))
     return p.returncode == 0
 
 
@@ -227,14 +231,11 @@ async def crashdump(log, model_name, directory=None):
         cmd += ['-o', directory]
     try:
         success = await execute_process(cmd, log)
-        log.info("Crashdump result: {}".format(success))
+        if success:
+            log.info("Crashdump COMPLETE")
+        else:
+            log.error("Crashdump FAILED")
     except FileNotFoundError as e:
-        log.error(
+        log.warning(
             "Tried to run crashdump, but could not find the executable. "
             "Is it installed in your environment?")
-        success = False
-
-    if success:
-        log.info("Crashdump COMPLETE")
-    else:
-        log.info("Crashdump FAILED")
