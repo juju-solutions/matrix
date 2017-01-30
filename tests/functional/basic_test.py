@@ -12,8 +12,8 @@ class TestBasic(Harness):
     '''
     def setUp(self):
         super(TestBasic, self).setUp()
-        self.artifacts = ['matrix.log', 'glitch_plan.yaml']
+        self.artifacts = ['matrix.log', 'glitch_plan*.yaml']
 
     def test_basics(self):
         subprocess.run(self.cmd, timeout=1000)
-        self.check_artifacts(4)  # 2 tarballs, log, and glitch plan
+        self.check_artifacts(2)  # 1 glitch plan, and a log

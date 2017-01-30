@@ -17,19 +17,16 @@ class Harness(TestCase):
     crashdumps, and glitch plans.
 
     '''
-    def check_artifacts(self, num=None, crashdump=True):
+    def check_artifacts(self, num=None):
         '''
         Verify that that artifacts that we expect to exist, do.
 
         Optionally verify the number of artifacts created.
 
         '''
-        artifacts = [Path(self.tmpdir, a) for a in self.artifacts]
-
-        if crashdump:
-            tarballs = Path(self.tmpdir).glob('matrix*tar.gz')
-            self.assertTrue(tarballs)
-            artifacts.extend(tarballs)
+        artifacts = []
+        for a in self.artifacts:
+            artifacts += Path(self.tmpdir).glob(a)
 
         for a in artifacts:
             self.assertTrue(a.exists())

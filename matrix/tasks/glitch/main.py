@@ -88,9 +88,12 @@ async def glitch(context, rule, task, event=None):
         glitch_plan = validate_plan(glitch_plan)
 
         if config.output_dir:
-            glitch_output = Path(config.output_dir, config.glitch_output)
+            glitch_output = Path(config.output_dir,
+                                 config.glitch_output.format(
+                                     model_name=model.info.name))
         else:
-            glitch_output = Path(config.glitch_output)
+            glitch_output = Path(config.glitch_output.format(
+                model_name=model.info.name))
         rule.log.info("Writing glitch plan to {}".format(glitch_output))
         with glitch_output.open('w') as output_file:
             output_file.write(yaml.dump(glitch_plan))
