@@ -29,4 +29,4 @@ class TestEnv(Harness):
         test = 'tests/test_non_gating.matrix'  # Lightweight test
         proc = subprocess.run(self.cmd + [test], check=False, timeout=60)
         self.assertEqual(proc.returncode, 0)
-        self.check_artifacts(2)  # Tarball and log
+        self.check_artifacts(1)  # log

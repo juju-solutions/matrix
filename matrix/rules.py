@@ -391,7 +391,7 @@ class RuleEngine:
                 try:
                     await utils.crashdump(
                         log=log,
-                        tag=context.juju_model.info.name,
+                        model_name=context.juju_model.info.name,
                         directory=context.config.output_dir
                     )
                 except Exception as e:

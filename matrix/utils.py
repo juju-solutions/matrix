@@ -198,6 +198,10 @@ def translate_ansi_colors(entity):
 
 
 async def execute_process(cmd, log):
+    '''
+    Execute an external process in a non blocking fashion.
+
+    '''
     p = await asyncio.create_subprocess_exec(
             *cmd,
             stdin=asyncio.subprocess.PIPE,
@@ -209,57 +213,29 @@ async def execute_process(cmd, log):
     if stdout:
         log.debug(stdout.decode('utf-8'))
     if stderr:
-        log.debug(stderr.decode('utf-8'))
+        log.error(stderr.decode('utf-8'))
     return p.returncode == 0
 
 
-async def crashdump(log, tag, directory=None):
+async def crashdump(log, model_name, directory=None):
     '''
     Dump the logs from the running model.
 
-    Will result in two files in the current working dir:
-        matrix.log.gz
-        juju-crashdump-<somehash>.tar.gz
-
-
-    # TODO: only do this if a command line arg is specified
+    Will result in the following in the workout or output dir:
+        juju-crashdump-<model_name>.tar.gz
 
     '''
     log.info("Running crash dump")
-    log.warning(
-        "Crashdump specified, but skipping juju-crashdump due to gh issue #59. "
-        "Will still save off matrix log."
-    )
-    # Run juju-crashdump
-    #cmd = [
-    #    'juju-crashdump',
-    #    '-m',
-    #    context.juju_model.info.name,
-    #]
-    #result = await task.execute_process(cmd, log)
-    #log.info("Crashdump result: {}".format(result))
-
-    # Wrap the logs and glitch plan (if any) up in a tarball.
-    logfile = 'matrix.log'
-    plan = 'glitch_plan.yaml'
-    if tag.startswith("matrix-"):
-        tag = tag[7:]  # Strip off extra "matrix"
-    tarball = 'matrix_{}.tar.gz'.format(tag)
+    cmd = ['juju-crashdump', '-m', model_name, '-u', model_name]
     if directory:
-        tarball = str(Path(directory, tarball))
-
-    cmd = [
-        'tar',
-        'czf',
-        tarball,
-        "-C", directory or ".",
-        logfile
-    ]
-    if Path(plan).exists() or (directory and Path(directory, plan).exists()):
-        cmd.append(plan)
-
-    success = await execute_process(cmd, log)
-    if success:
-        log.info("Crashdump COMPLETE")
-    else:
-        log.info("Crashdump FAILED")
+        cmd += ['-o', directory]
+    try:
+        success = await execute_process(cmd, log)
+        if success:
+            log.info("Crashdump COMPLETE")
+        else:
+            log.error("Crashdump FAILED")
+    except FileNotFoundError as e:
+        log.warning(
+            "Tried to run crashdump, but could not find the executable. "
+            "Is it installed in your environment?")

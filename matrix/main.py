@@ -125,7 +125,8 @@ def setup(matrix, args=None):
                              "from the suite(s) are run")
     parser.add_argument("-g", "--glitch_plan")
     parser.add_argument("-n", "--glitch_num", default=5)
-    parser.add_argument("-o", "--glitch_output", default="glitch_plan.yaml")
+    parser.add_argument("-o", "--glitch_output",
+                        default="glitch_plan_{model_name}.yaml")
     options = parser.parse_args(args, namespace=matrix)
     if not (options.path.is_dir() and (options.path / 'bundle.yaml').exists()):
         parser.error('Invalid bundle directory: %s' % options.path)
