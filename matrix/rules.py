@@ -413,11 +413,12 @@ class RuleEngine:
         context.states.clear()
         context.waiters.clear()
         try:
-            await utils.crashdump(
-                log=log,
-                model_name=context.juju_model.info.name,
-                directory=context.config.output_dir
-            )
+            if self.exit_code:
+                await utils.crashdump(
+                    log=log,
+                    model_name=context.juju_model.info.name,
+                    directory=context.config.output_dir
+                )
         except Exception as e:
             log.exception("Error while running crashdump.")
         if not self.keep_models:
