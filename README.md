@@ -21,7 +21,57 @@ states and produce helpful logs.
 
 ![Interactive Mode](matrix.png)
 
-## Running Matrix
+
+Extending Matrix from within a Bundle
+-------------------------------------
+
+The default suite of tests is designed to provide a general assertion
+of functionality for a given bundle based on the common operations and
+promises that Juju provides.  This ensures that, even without any work
+on the part of the charm or bundle author, we can make some assurances
+of the quality of the bundle and its charms.  However, each bundle will
+have its own specific functionality that cannot be tested generically.
+
+Bundles can extend the testing that Matrix does in several ways.  The
+goal is to allow the bundle author to focus on the things that are
+unique to their bundle, while Matrix handles the things that are common
+to testing all bundles.
+
+### End-to-end load
+
+The best way for a bundle to verify the functionality unique to that
+bundle is to provide an end-to-end load generator that verifies that
+the stack as a whole is functioning as expected.  This can be done in
+two ways:
+
+  * `tests/end_to_end.py`  This file should contain an `async` function
+    called `end_to_end` that will be called with two arguments: a
+    [Juju model instance](https://pypi.python.org/pypi/juju/), and a
+    standard logger instance where it can emit messages.
+
+  * `tests/end_to_end`  This file should be executable, and will be
+    invoked with the name of the model being tested.  The output
+    will be logged, with stderr being logged as errors.
+
+In either case, the load generator will be called after the model has
+been deployed and settled out.  It should run indefinitely and do
+whatever it needs to to generate some form of load that can assure
+that the system as a whole is functioning properly.  If the function
+returns or the executable terminates, it will be considered a test
+failure.  Otherwise, it will be terminated automatically once the
+rest of the built-in tests have finished.
+
+### Custom Suite
+
+A bundle can also provide a custom Matrix suite in `tests/matrix.yaml`.
+This is a YAML file using the format described below.  It can use any
+of the built-in Matrix tasks, and it can provide custom tasks as well.
+The bundle directory will be included on the Python path, so, for example,
+the bundle could provide a `tests/matrix.py` file with custom tasks
+and the YAML could refer to them via `tests.matrix.task_name`.
+
+Running Matrix
+--------------
 
 Install and run Matrix by doing the following:
 
