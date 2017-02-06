@@ -226,7 +226,7 @@ async def crashdump(log, model_name, directory=None):
 
     '''
     log.info("Running crash dump")
-    cmd = ['juju-crashdump', '-m', model_name, '-u', model_name]
+    cmd = ['juju-crashdump', '-m', model_name, '-u', model_name, '-s']
     if directory:
         cmd += ['-o', directory]
     try:
