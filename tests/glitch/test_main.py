@@ -28,7 +28,7 @@ def kill_juju_agent(application='foo'):
         }
 
 
-def make_test_model(foo_unit=True):
+def make_test_model(foo_unit=True, foo_status='idle'):
     juju_model = Model()
     state = juju_model.state
     state.apply_delta(ApplicationDelta(
@@ -37,6 +37,9 @@ def make_test_model(foo_unit=True):
         state.apply_delta(UnitDelta(('unit', 'type1', {
             'name': 'steve',
             'application': 'foo',
+            # Add some status to fake out glitch's "wait 'til the
+            # cloud is idle" check.
+            'agent-status': {'current': foo_status}
             })))
     return juju_model
 
