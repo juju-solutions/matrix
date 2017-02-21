@@ -52,6 +52,50 @@ async def select(rule, model, selectors, objects=None,
     return cur
 
 
+class NoObjects(Exception):
+    """Raised when no objects were found for a glitch."""
+
+
+async def perform_action(action, model, rule):
+    """Perform a glitch action.
+
+    This is a destructive operation, both for the supplied action and for the
+    model.
+
+    :param actions: A list of actions from a glitch plan.
+    :param model: A Juju model to apply the actions to.
+    :param rule: A model.Rule, typically used for logging.  Passed on to
+        the glitch action.
+    :raises: NoObjects if no objects were found to perform the action on.
+    :return: A tuple of (fname, bool), where fname is the name of the action's
+        function, and bool is True if errors were encountered, False otherwise.
+    """
+    actionf = Actions[action.pop('action')]['func']
+    fname = actionf.__name__
+    selectors = action.pop('selectors')
+    # Find a set of units to act upon
+    objects = await select(rule, model, selectors)
+    if not objects:
+        raise NoObjects("Could not run {}. No objects for selectors {}".format(
+                        actionf.__name__, selectors))
+
+    # Run the specified action on those units
+    rule.log.info("GLITCHING {}: {}".format(actionf.__name__, objects))
+
+    try:
+        await asyncio.wait_for(actionf(rule, model, objects, **action), 30)
+    except asyncio.TimeoutError:
+        rule.log.error("Timeout running {}".format(actionf.__name__))
+        return fname, True
+    except Exception as e:
+        rule.log.exception(
+            "Exception while running {}: {} {}.".format(
+                actionf.__name__, type(e), e))
+        return fname, True
+    else:
+        return fname, False
+
+
 async def glitch(context, rule, task, event=None):
     """
     Perform a set of actions against a model, with a mind toward causing
@@ -100,38 +144,20 @@ async def glitch(context, rule, task, event=None):
 
     # Execute glitch plan. We perform destructive operations here!
     for action in glitch_plan['actions']:
-        actionf = Actions[action.pop('action')]['func']
-        selectors = action.pop('selectors')
-        # Find a set of units to act upon
-        objects = await select(rule, model, selectors)
-        if not objects:
+        try:
+            fname, errors = await perform_action(action, model, rule)
+        except NoObjects as e:
             # If we get an empty set of objects back, just skip this action.
-            rule.log.error(
-                "Could not run {}. No objects for selectors {}".format(
-                    actionf.__name__, selectors))
+            rule.log.error(e)
             continue
 
-        # Run the specified action on those units
-        rule.log.info("GLITCHING {}: {}".format(actionf.__name__, objects))
-
-        errors = False
-        try:
-            await asyncio.wait_for(actionf(rule, model, objects, **action), 30)
-        except asyncio.TimeoutError:
-            rule.log.error("Timeout running {}".format(actionf.__name__))
-            errors = True
-        except Exception as e:
-            rule.log.exception(
-                "Exception while running {}: {} {}.".format(
-                    actionf.__name__, type(e), e))
-            errors = True
         if errors and task.gating:
             raise TestFailure(
                 task, "Exceptions were raised during glitch run.")
 
         context.bus.dispatch(
             origin="glitch",
-            payload={'action': actionf.__name__, **action},
+            payload={'action': fname, **action},
             kind="glitch.activate"
         )
         await asyncio.sleep(2, loop=context.loop)
