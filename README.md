@@ -54,8 +54,8 @@ two ways:
     will be logged, with stderr being logged as errors.
 
 In either case, the load generator will be called after the model has
-been deployed and settled out.  It should run indefinitely and do
-whatever it needs to to generate some form of load that can assure
+been deployed and has settled out.  It should run indefinitely,
+continually generating a reasonable amount of load sufficient to assure
 that the system as a whole is functioning properly.  If the function
 returns or the executable terminates, it will be considered a test
 failure.  Otherwise, it will be terminated automatically once the
