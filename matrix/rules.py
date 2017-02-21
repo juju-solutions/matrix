@@ -413,10 +413,16 @@ class RuleEngine:
         context.states.clear()
         context.waiters.clear()
         try:
-            if self.exit_code:
+            if self.model:
+                model_name = self.model
+            elif context.juju_model:
+                model_name = context.juju_mode.info.name
+            else:
+                model_name = None
+            if self.exit_code and model_name:
                 await utils.crashdump(
                     log=log,
-                    model_name=context.juju_model.info.name,
+                    model_name=model_name,
                     directory=context.config.output_dir
                 )
         except Exception as e:
