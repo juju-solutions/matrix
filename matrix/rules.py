@@ -416,7 +416,7 @@ class RuleEngine:
             if self.model:
                 model_name = self.model
             elif context.juju_model:
-                model_name = context.juju_mode.info.name
+                model_name = context.juju_model.info.name
             else:
                 model_name = None
             if self.exit_code and model_name:
