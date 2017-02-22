@@ -13,6 +13,10 @@ from . import rules
 from . import utils
 
 
+RAW_TIMEOUT = 3600
+TUI_TIMEOUT = None
+
+
 def configLogging(options):
     logging.captureWarnings(True)
     if options.output_dir:
@@ -127,7 +131,22 @@ def setup(matrix, args=None):
     parser.add_argument("-n", "--glitch_num", default=5)
     parser.add_argument("-o", "--glitch_output",
                         default="glitch_plan_{model_name}.yaml")
+    parser.add_argument("-z", "--timeout", type=int,
+                        help=("Max seconds for a test to run. "
+                              "Defaults to {} for raw (non interactive) mode; "
+                              "defaults to {} for tui (interactive) "
+                              "mode.".format(
+                                  RAW_TIMEOUT,
+                                  TUI_TIMEOUT or "no timeout"
+                              )
+                        ))
     options = parser.parse_args(args, namespace=matrix)
+    # Set default timeouts
+    if options.timeout is None:
+        if options.skin == 'raw':
+            options.timeout = RAW_TIMEOUT
+        if options.skin == 'tui':
+            options.timeout = TUI_TIMEOUT  # None
     if not (options.path.is_dir() and (options.path / 'bundle.yaml').exists()):
         parser.error('Invalid bundle directory: %s' % options.path)
 
