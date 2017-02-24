@@ -162,6 +162,9 @@ async def glitch(context, rule, task, event=None):
         )
         await asyncio.sleep(2, loop=context.loop)
 
+    rule.log.info("Glitch is waiting for model to settle.")
+    await model.block_until(model.all_units_idle)
+
     rule.log.info("Finished glitch")
 
     return True
