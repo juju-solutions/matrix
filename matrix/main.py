@@ -91,6 +91,9 @@ def setup(matrix, args=None):
                         help="Controller to use (default: current)")
     parser.add_argument("-m", "--model", default=None,
                         help="Model to use instead of creating one per test")
+    parser.add_argument("-M", "--model-prefix",
+                        default=os.getenv('MATRIX_MODEL_PREFIX') or 'matrix',
+                        help="Prefix any models matrix creates with this string.")
     parser.add_argument("-k", "--keep-models", action="store_true",
                         default=False, help="Keep the created per-test models "
                                             "for further inspection")
