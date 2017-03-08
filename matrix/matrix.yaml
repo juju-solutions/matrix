@@ -20,12 +20,12 @@
       "do":
         "task": matrix.tasks.health
       "gating": false
-      "until": glitch.complete
+      "until": chaos.complete
     - "after": health.status.healthy
       "do":
         "task": matrix.tasks.end_to_end
-      "until": glitch.complete
+      "until": chaos.complete
     - "after": health.status.healthy
       "do":
-        "task": matrix.tasks.glitch
+        "task": matrix.tasks.chaos
       "gating": false

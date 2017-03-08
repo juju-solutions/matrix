@@ -14,7 +14,7 @@ from matrix.utils import Singleton
 
 
 _marker = object()
-log = logging.getLogger("glitch")
+log = logging.getLogger("chaos")
 
 class SelectError(Exception): pass
 

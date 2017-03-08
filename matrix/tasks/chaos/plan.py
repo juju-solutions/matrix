@@ -96,7 +96,7 @@ async def generate_plan(rule, model, num):
     Generate a test plan. The resultant plan, if written out to a
     .yaml file, would look something like the following:
 
-    glitch:
+    chaos:
       format: v1
       actions:
         - action: reboot

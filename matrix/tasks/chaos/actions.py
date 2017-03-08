@@ -15,7 +15,7 @@ from matrix.utils import Singleton
 
 from .tags import SUBORDINATE_OK
 
-log = logging.getLogger("glitch")
+log = logging.getLogger("chaos")
 
 
 class _Actions(dict, metaclass=Singleton):

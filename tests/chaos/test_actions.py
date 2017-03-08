@@ -1,6 +1,6 @@
 import unittest
 
-from matrix.tasks.glitch.actions import _Actions
+from matrix.tasks.chaos.actions import _Actions
 
 
 class FauxActions(_Actions):

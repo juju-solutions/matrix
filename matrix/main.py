@@ -104,7 +104,7 @@ def setup(matrix, args=None):
     parser.add_argument("-d", "--output-dir",
                         default=os.getenv('MATRIX_OUTPUT_DIR'),
                         help="Directory that should contain logs, "
-                             "glitch plans, and other artifacts. Defaults "
+                             "chaos plans, and other artifacts. Defaults "
                              "to the current working dir.")
     parser.add_argument("-s", "--skin", choices=("tui", "raw"), default="tui")
     parser.add_argument("-x", "--xunit", default=None, metavar='FILENAME',
@@ -127,10 +127,10 @@ def setup(matrix, args=None):
     parser.add_argument("-t", "--test_pattern", nargs="*", default=["*"],
                         help="Pattern for selecting which tests "
                              "from the suite(s) are run")
-    parser.add_argument("-g", "--glitch_plan")
-    parser.add_argument("-n", "--glitch_num", default=5)
-    parser.add_argument("-o", "--glitch_output",
-                        default="glitch_plan_{model_name}.yaml")
+    parser.add_argument("-g", "--chaos_plan")
+    parser.add_argument("-n", "--chaos_num", default=5)
+    parser.add_argument("-o", "--chaos_output",
+                        default="chaos_plan_{model_name}.yaml")
     parser.add_argument("-z", "--timeout", type=int,
                         help=("Max seconds for a test to run. "
                               "Defaults to {} for raw (non interactive) mode; "

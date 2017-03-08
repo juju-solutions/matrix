@@ -9,10 +9,10 @@ from juju.model import Model
 from juju.delta import ApplicationDelta, UnitDelta
 
 from matrix import model
-from matrix.tasks.glitch import actions
+from matrix.tasks.chaos import actions
 from matrix.bus import Bus
-from matrix.tasks.glitch.main import (
-    glitch,
+from matrix.tasks.chaos.main import (
+    chaos,
     NoObjects,
     perform_action,
     )
@@ -37,7 +37,7 @@ def make_test_model(foo_unit=True, foo_status='idle'):
         state.apply_delta(UnitDelta(('unit', 'type1', {
             'name': 'steve',
             'application': 'foo',
-            # Add some status to fake out glitch's "wait 'til the
+            # Add some status to fake out chaos's "wait 'til the
             # cloud is idle" check.
             'agent-status': {'current': foo_status}
             })))
@@ -47,7 +47,7 @@ def make_test_model(foo_unit=True, foo_status='idle'):
 class TestPerformAction(unittest.TestCase):
 
     def setUp(self):
-        self.rule = model.Rule(model.Task(command='glitch',
+        self.rule = model.Rule(model.Task(command='chaos',
                                           args={'path': None}))
         self.rule.log.setLevel(logging.CRITICAL)
         self.loop = asyncio.get_event_loop()
@@ -92,10 +92,10 @@ class TestPerformAction(unittest.TestCase):
                     perform_action(kill_juju_agent(), juju_model, self.rule)))
 
 
-class TestGlitch(unittest.TestCase):
+class TestChaos(unittest.TestCase):
 
-    def test_glitch(self):
-        task = model.Task(command='glitch', args={'path': None})
+    def test_chaos(self):
+        task = model.Task(command='chaos', args={'path': None})
         rule = model.Rule(task)
         loop = asyncio.get_event_loop()
         bus = Bus(loop=loop)
@@ -114,7 +114,7 @@ class TestGlitch(unittest.TestCase):
         with NamedTemporaryFile() as plan_file:
             yaml.safe_dump(plan, plan_file, encoding='utf8')
             task.args['plan'] = plan_file.name
-            loop.run_until_complete(glitch(context, rule, task, None))
+            loop.run_until_complete(chaos(context, rule, task, None))
 
 
 if __name__ == '__main__':

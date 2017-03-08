@@ -1,0 +1,7 @@
+#!/usr/bin/env matrix
+tests:
+- name: chaos
+  description: Chaos an already deployed bundle
+  rules:
+    - do:
+        task: matrix.tasks.chaos
