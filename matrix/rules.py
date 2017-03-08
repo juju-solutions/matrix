@@ -457,7 +457,10 @@ class RuleEngine:
         else:
             # work-around for: https://bugs.launchpad.net/juju/+bug/1652171
             credential = await self._get_credential(context)
-            name = "matrix-{}".format(petname.Generate(2, '-'))
+            name = "{}-{}".format(
+                context.config.model_prefix,
+                petname.Generate(2, '-')
+            )
             log.info("Creating model %s", name)
             context.juju_model = await asyncio.wait_for(
                 context.juju_controller.add_model(
