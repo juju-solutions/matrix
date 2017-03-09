@@ -10,8 +10,8 @@ from .plan import generate_plan, validate_plan
 from .selectors import Selectors
 
 
-log = logging.getLogger("glitch")
-DEFAULT_PLAN_NAME = "glitch_plan.yaml"
+log = logging.getLogger("chaos")
+DEFAULT_PLAN_NAME = "chaos_plan.yaml"
 
 
 def default_resolver(model, kind, name):
@@ -53,19 +53,19 @@ async def select(rule, model, selectors, objects=None,
 
 
 class NoObjects(Exception):
-    """Raised when no objects were found for a glitch."""
+    """Raised when no objects were found for a chaos."""
 
 
 async def perform_action(action, model, rule):
-    """Perform a glitch action.
+    """Perform a chaos action.
 
     This is a destructive operation, both for the supplied action and for the
     model.
 
-    :param actions: A list of actions from a glitch plan.
+    :param actions: A list of actions from a chaos plan.
     :param model: A Juju model to apply the actions to.
     :param rule: A model.Rule, typically used for logging.  Passed on to
-        the glitch action.
+        the chaos action.
     :raises: NoObjects if no objects were found to perform the action on.
     :return: A tuple of (fname, bool), where fname is the name of the action's
         function, and bool is True if errors were encountered, False otherwise.
@@ -80,7 +80,7 @@ async def perform_action(action, model, rule):
                         actionf.__name__, selectors))
 
     # Run the specified action on those units
-    rule.log.info("GLITCHING {}: {}".format(actionf.__name__, objects))
+    rule.log.info("Creating CHAOS {}: {}".format(actionf.__name__, objects))
 
     try:
         await asyncio.wait_for(actionf(rule, model, objects, **action), 30)
@@ -96,7 +96,7 @@ async def perform_action(action, model, rule):
         return fname, False
 
 
-async def glitch(context, rule, task, event=None):
+async def chaos(context, rule, task, event=None):
     """
     Perform a set of actions against a model, with a mind toward causing
     trouble.
@@ -107,43 +107,43 @@ async def glitch(context, rule, task, event=None):
     We write the last plan to be run out to a YAML file.
 
     """
-    rule.log.info("Starting glitch")
+    rule.log.info("Starting chaos")
 
     model = context.juju_model
     config = context.config
 
-    glitch_file = None
+    chaos_file = None
     if task.args.get('plan'):
         # If the user specifies {bundle}/some/path in matrix config,
         # replace 'bundle' with the path to the bundle.
-        glitch_file = Path(task.args['plan'].format(bundle=config.path))
-    elif config.glitch_plan:
-        glitch_file = Path(config.glitch_plan)
+        chaos_file = Path(task.args['plan'].format(bundle=config.path))
+    elif config.chaos_plan:
+        chaos_file = Path(config.chaos_plan)
 
-    if glitch_file:
-        with glitch_file.open('r') as f:
-            glitch_plan = validate_plan(yaml.load(f))
-        rule.log.info("loaded glitch plan from {}".format(glitch_file))
+    if chaos_file:
+        with chaos_file.open('r') as f:
+            chaos_plan = validate_plan(yaml.load(f))
+        rule.log.info("loaded chaos plan from {}".format(chaos_file))
     else:
-        glitch_plan = await generate_plan(
+        chaos_plan = await generate_plan(
             rule,
             model,
-            num=int(config.glitch_num))
-        glitch_plan = validate_plan(glitch_plan)
+            num=int(config.chaos_num))
+        chaos_plan = validate_plan(chaos_plan)
 
         if config.output_dir:
-            glitch_output = Path(config.output_dir,
-                                 config.glitch_output.format(
+            chaos_output = Path(config.output_dir,
+                                 config.chaos_output.format(
                                      model_name=model.info.name))
         else:
-            glitch_output = Path(config.glitch_output.format(
+            chaos_output = Path(config.chaos_output.format(
                 model_name=model.info.name))
-        rule.log.info("Writing glitch plan to {}".format(glitch_output))
-        with glitch_output.open('w') as output_file:
-            output_file.write(yaml.dump(glitch_plan))
+        rule.log.info("Writing chaos plan to {}".format(chaos_output))
+        with chaos_output.open('w') as output_file:
+            output_file.write(yaml.dump(chaos_plan))
 
-    # Execute glitch plan. We perform destructive operations here!
-    for action in glitch_plan['actions']:
+    # Execute chaos plan. We perform destructive operations here!
+    for action in chaos_plan['actions']:
         try:
             fname, errors = await perform_action(action, model, rule)
         except NoObjects as e:
@@ -153,18 +153,18 @@ async def glitch(context, rule, task, event=None):
 
         if errors and task.gating:
             raise TestFailure(
-                task, "Exceptions were raised during glitch run.")
+                task, "Exceptions were raised during chaos run.")
 
         context.bus.dispatch(
-            origin="glitch",
+            origin="chaos",
             payload={'action': fname, **action},
-            kind="glitch.activate"
+            kind="chaos.activate"
         )
         await asyncio.sleep(2, loop=context.loop)
 
-    rule.log.info("Glitch is waiting for model to settle.")
+    rule.log.info("Chaos is waiting for model to settle.")
     await model.block_until(model.all_units_idle)
 
-    rule.log.info("Finished glitch")
+    rule.log.info("Finished chaos")
 
     return True

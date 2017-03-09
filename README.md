@@ -106,7 +106,7 @@ against a bundle in the store, you can use bundletester:
 
 In addition to running the bundle and charm tests, bundletester will
 run Matrix on the bundle.  Note that it will not run it in interactive mode,
-so you will only see the end result.  The `matrix.log` and `glitch_plan.yaml`
+so you will only see the end result.  The `matrix.log` and `chaos_plan.yaml`
 files will be available, however.
 
 ### Running with the virtualenv
@@ -160,15 +160,15 @@ rules and states (similar to reactive and layer-cake).
             action: deploy
             version: current
         - do: test_traffic
-          until: glitch.complete
+          until: chaos.complete
           after: deploy
         - do:
-            action: matrix.tasks.glitch
+            action: matrix.tasks.chaos
           while: test_traffic
         - do:
             action: matrix.tasks.health
             periodic: 5
-          until: glitch.complete
+          until: chaos.complete
 
 Given this YAML test definition fragment the intention here is as follows.
 Define a test relative to a bundle. Deploy that bundle, this will set a state
@@ -203,10 +203,10 @@ tasks are
 
     matrix.tasks.health
 
-    matrix.tasks.glitch:
+    matrix.tasks.chaos:
         applications: *all* | [by_name]
 
-Glitch internally might have a number of named components and mutation events
+Chaos internally might have a number of named components and mutation events
 that can be used to perturb the model. Configuration there of TBD.
 
 

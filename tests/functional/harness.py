@@ -14,7 +14,7 @@ class Harness(TestCase):
 
     Also provides some facilities that a test can call to check up and
     make sure that we create expected artifacts, like logs,
-    crashdumps, and glitch plans.
+    crashdumps, and chaos plans.
 
     '''
     def check_artifacts(self, num=None):

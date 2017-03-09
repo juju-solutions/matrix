@@ -14,7 +14,7 @@ class TestGating(Harness):
     def setUp(self):
         super(TestGating, self).setUp()
         self.cmd.append("-D")  # Skip default tests
-        self.artifacts = ['matrix.log']  # No glitch plan
+        self.artifacts = ['matrix.log']  # No chaos plan
 
     def test_gating_test_failure(self):
         test = 'tests/test_gating.matrix'

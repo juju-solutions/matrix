@@ -1,7 +1,0 @@
-#!/usr/bin/env matrix
-tests:
-- name: glitch
-  description: Glitch an already deployed bundle
-  rules:
-    - do:
-        task: matrix.tasks.glitch
