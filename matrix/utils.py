@@ -5,7 +5,7 @@ import logging
 import importlib
 import re
 import textwrap
-from pathlib import Path
+from contextlib import contextmanager
 
 import urwid
 
@@ -235,7 +235,18 @@ async def crashdump(log, model_name, directory=None):
             log.info("Crashdump COMPLETE")
         else:
             log.error("Crashdump FAILED")
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         log.warning(
             "Tried to run crashdump, but could not find the executable. "
             "Is it installed in your environment?")
+
+
+@contextmanager
+def new_event_loop():
+    old_loop = asyncio.get_event_loop()
+    new_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(new_loop)
+    try:
+        yield new_loop
+    finally:
+        asyncio.set_event_loop(old_loop)
