@@ -20,6 +20,8 @@ SETUP = {
         'console_scripts': [
             # Script can be invoked as a matrix plugin: `juju matrix`
             'juju-matrix = matrix.main:main',
+            # The following script is deprecated:
+            'matrix = matrix.main:main',
         ]
     },
     'install_requires': reqs,
