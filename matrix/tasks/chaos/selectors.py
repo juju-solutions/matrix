@@ -6,7 +6,6 @@ from typing import List, Any
 import enforce
 from juju.model import Model
 from juju.application import Application
-from juju.machine import Machine
 from juju.unit import Unit
 
 from matrix.model import Rule
@@ -16,7 +15,9 @@ from matrix.utils import Singleton
 _marker = object()
 log = logging.getLogger("chaos")
 
-class SelectError(Exception): pass
+
+class SelectError(Exception):
+    pass
 
 
 class _Selectors(dict, metaclass=Singleton):
@@ -33,6 +34,7 @@ class _Selectors(dict, metaclass=Singleton):
         else:
             self[name] = wrapper
         return wrapper
+
 
 Selectors = _Selectors()
 selector = Selectors.decorate
@@ -65,7 +67,8 @@ async def machines(rule: Rule, model: Model):
 
 
 @selector
-async def applications(rule: Rule, model: Model, application: Application=None):
+async def applications(rule: Rule, model: Model,
+                       application: Application=None):
     if application is None:
         return [a for a in model.applications.values()]
     else:
@@ -103,7 +106,8 @@ async def agent_status(rule: Rule, model: Model, units: List[Unit], expect):
 
 
 @selector
-async def workload_status(rule: Rule, model: Model, units: List[Unit], expect=None):
+async def workload_status(rule: Rule, model: Model, units: List[Unit],
+                          expect=None):
     """
     Return units with a workload status matching a string.
 

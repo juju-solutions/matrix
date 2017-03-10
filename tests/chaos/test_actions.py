@@ -20,5 +20,6 @@ class TestAction(unittest.TestCase):
 
         self.assertTrue('faux_action' in self.actions)
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -69,8 +69,10 @@ class TestPerformAction(unittest.TestCase):
 
     def test_perform_action_error(self):
         juju_model = make_test_model()
+
         async def kill_raise(a, b, c):
             raise Exception
+
         with patch.dict(actions.Actions, {'kill_juju_agent': {
                 'func': kill_raise,
                 }}):
@@ -81,8 +83,10 @@ class TestPerformAction(unittest.TestCase):
 
     def test_perform_action_timeout_error(self):
         juju_model = make_test_model()
+
         async def kill_raise(a, b, c):
             raise asyncio.TimeoutError()
+
         with patch.dict(actions.Actions, {'kill_juju_agent': {
                 'func': kill_raise,
                 }}):

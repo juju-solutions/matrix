@@ -146,7 +146,6 @@ class Bus:
                 log.debug("Exiting Bus with shutdown event")
                 break
 
-
             # Track the event after it has been applied
             if self.__queue.qsize() == 0:
                 if until_complete is True or self.should_run is False:
@@ -157,6 +156,7 @@ class Bus:
         self.should_run = False
         # Pushing a marker will force queue.get to return
         self.dispatch(kind="shutdown")
+
 
 default_bus = None
 

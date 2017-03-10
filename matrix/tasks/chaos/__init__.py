@@ -1,1 +1,1 @@
-from .main import chaos
+from .main import chaos  # noqa

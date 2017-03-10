@@ -93,7 +93,8 @@ def setup(matrix, args=None):
                         help="Model to use instead of creating one per test")
     parser.add_argument("-M", "--model-prefix",
                         default=os.getenv('MATRIX_MODEL_PREFIX') or 'matrix',
-                        help="Prefix any models matrix creates with this string.")
+                        help="Prefix any models matrix creates with "
+                        "this string.")
     parser.add_argument("-k", "--keep-models", action="store_true",
                         default=False, help="Keep the created per-test models "
                                             "for further inspection")
@@ -140,9 +141,7 @@ def setup(matrix, args=None):
                               "defaults to {} for tui (interactive) "
                               "mode.".format(
                                   RAW_TIMEOUT,
-                                  TUI_TIMEOUT or "no timeout"
-                              )
-                        ))
+                                  TUI_TIMEOUT or "no timeout")))
     options = parser.parse_args(args, namespace=matrix)
     # Set default timeouts
     if options.timeout is None:

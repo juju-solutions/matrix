@@ -82,18 +82,19 @@ async def reboot(rule: Rule, model: Model, unit: Unit):
     await unit.run('sudo reboot')
 
 
-#@action
+# @action
 async def sleep(rule: Rule, model: Model=None, obj: Any=None, seconds=2):
     """Sleep for the given number of seconds."""
 
     await asyncio.sleep(seconds)
 
 
-#@action
+# @action
 # Disabling for now, as it is semi-duplicated by remove_unit,
 # and it's harder to avoid removing the last unit of an application
 # with the info available to a Machine object.
-async def destroy_machine(rule: Rule, model: Model, machine: Machine, force: bool=True):
+async def destroy_machine(rule: Rule, model: Model, machine: Machine,
+                          force: bool=True):
     """Remove a machine."""
 
     await machine.destroy(force=force)
