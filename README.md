@@ -1,6 +1,3 @@
-*This is Alpha software. It isn't feature complete yet.*
-
-
 Matrix
 ======
 
@@ -73,27 +70,27 @@ and the YAML could refer to them via `tests.matrix.task_name`.
 Running Matrix
 --------------
 
-Install and run Matrix by doing the following:
+Install and run Matrix as a juju plugin by doing the following:
 
     git clone https://github.com/juju-solutions/matrix.git
     cd matrix
     sudo pip3 install . -f wheelhouse --no-index
-    matrix -p /path/to/bundle
+    juju matrix -p /path/to/bundle
 
 This will run Matrix in interactive mode, with a terminal UI that shows
 the progress of each test, their results, the status of the Juju model,
 and the Juju debug log.  If you prefer to use the non-interactive mode,
 invoke Matrix with the `raw` screen option:
 
-    matrix -p /path/to/bundle -s raw
+    juju matrix -p /path/to/bundle -s raw
 
 By default, Matrix runs its built-in suite of tests, along with a `matrix.yaml`
 test case if found in the bundle.  You can also pass in additional Matrix
 tests via the command line:
 
-    matrix -p /path/to/bundle /path/to/other/test.yaml
+    juju matrix -p /path/to/bundle /path/to/other/test.yaml
 
-See `matrix --help` for more information and invocation options.
+See `juju matrix --help` for more information and invocation options.
 
 ### Running against bundles from the store
 
@@ -119,7 +116,7 @@ from which you can run Matrix:
     cd matrix/
     tox -r
     . .tox/py35/bin/activate
-    matrix -p /path/to/bundle
+    juju matrix -p /path/to/bundle
 
 Note that if any of the requirements change, you will need to rebuild the
 virtualenv:
