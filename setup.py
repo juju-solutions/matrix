@@ -8,9 +8,9 @@ with open(reqs_file) as f:
             if not line.startswith('--')]
 
 SETUP = {
-    'name': "matrix",
+    'name': "jujumatrix",
     'packages': find_packages(),
-    'version': "0.5.3",
+    'version': "0.9.0",
     'author': "Juju Developers",
     'author_email': "juju@lists.ubuntu.com",
     'url': "https://github.com/juju-solutions/matrix",
@@ -18,6 +18,9 @@ SETUP = {
     'long_description': open('README.md').read(),
     'entry_points': {
         'console_scripts': [
+            # Script can be invoked as a matrix plugin: `juju matrix`
+            'juju-matrix = matrix.main:main',
+            # The following script is deprecated:
             'matrix = matrix.main:main',
         ]
     },
