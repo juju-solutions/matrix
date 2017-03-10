@@ -1,0 +1,22 @@
+name: juju-matrix
+version: 0.9.0
+summary: Automatic testing of big software deployments under various failure conditions
+description: >
+  This is a test engine designed to validate proper function of real-world
+  software solutions under a variety of adverse conditions. While this system can
+  run in a way very similar to bundletester this engine is designed to a
+  different model. The idea here is to bring up a running deployment, set of a
+  pattern of application level tests and ensure that the system functions after
+  operations modelled with Juju are performed. In addition the system supports
+  large scale failure injection such a removal of units or machines while tests
+  are executing. 
+confinement: classic
+grade: stable
+apps:
+  juju-matrix:
+    command: bin/juju-matrix
+parts:
+  juju-matrix:
+    plugin: python
+    requirements: requirements.txt
+    source: .
