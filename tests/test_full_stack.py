@@ -3,6 +3,7 @@ import pytest
 import unittest
 
 from matrix.main import main
+from matrix.utils import new_event_loop
 
 
 class TestFullStack(unittest.TestCase):
@@ -10,5 +11,6 @@ class TestFullStack(unittest.TestCase):
         controller = pytest.config.getoption('--controller')
         if not controller:
             raise unittest.SkipTest()
-        bundle = Path(__file__).parent / 'basic_bundle'
-        main(['-c', controller, '-p', str(bundle), '-s', 'raw'])
+        with new_event_loop():
+            bundle = Path(__file__).parent / 'basic_bundle'
+            main(['-c', controller, '-p', str(bundle), '-s', 'raw'])
