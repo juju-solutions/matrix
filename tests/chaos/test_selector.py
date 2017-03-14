@@ -36,5 +36,6 @@ class TestSelectors(unittest.TestCase):
         with self.assertRaises(RuntimeTypeError):
             foo_two(foo_start())
 
+
 if __name__ == '__main__':
     unittest.main()

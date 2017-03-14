@@ -2,6 +2,7 @@ import asyncio
 import random
 from os import urandom
 
+
 async def chaos(context, rule, action, event=None):
     chaos_options = [
         "Reboot Unit",
@@ -27,7 +28,8 @@ async def chaos(context, rule, action, event=None):
             int.from_bytes(urandom(4), byteorder="little"))
         rule.log.debug('Running chaos with seed {}'.format(seed))
         # XXX: look at choosing number and types of ops based on models
-        # ex: we can identify SPoF by looking but can those units recover at all?
+        # ex: we can identify SPoF by looking but can those units recover
+        # at all?
         # XXX: we are also missing the notion of which services or units
         # these ops apply to, which may be critical to reproducibility
         num_ops = action.args.get("num_ops", 5)

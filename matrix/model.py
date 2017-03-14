@@ -132,15 +132,17 @@ class Task:
         return cmd
 
     async def setup_event(self, context, rule):
-        # create and manage an event subscriber
-        # for the condition in an "on" clause
-        # when the "on" condition's statement is matched
-        # to event.kind we use the curried handler
-        # additionally passing the event itself.
-        # XXX: this changes the call signature from other types of
-        # plugins, maybe that additionally needs kwargs
-        # call sig: callback(context, rule, task, event)
+        """
+        Create and manage an event subscriber for the condition in an "on"
+        clause when the "on" condition's statement is matched to
+        event.kind we use the curried handler additionally passing the
+        event itself.  XXX: this changes the call signature from other
+        types of plugins, maybe that additionally needs kwargs call
+        sig: callback(context, rule, task, event)
+
+        """
         cmd = self.resolve(context)
+
         async def event_wrapper(event):
             if isinstance(cmd, Path):
                 callback = self.execute_process

@@ -1,0 +1,19 @@
+dist: trusty
+sudo: required
+language: python
+python:
+  - "3.5"
+before_install:
+  - sudo add-apt-repository ppa:ubuntu-lxc/lxd-stable -y
+  - sudo add-apt-repository ppa:juju/stable -y
+  - sudo apt-get update -q
+  - sudo apt-get install lxd juju -y
+  - sudo usermod -a -G lxd $USER
+  - sudo lxd init --auto
+install: pip install tox-travis
+before_script:
+  - sudo -E sudo -u $USER -E bash -c "juju bootstrap localhost test"
+  - sudo -E sudo -u $USER -E bash -c "printf '1\nlocalhost\nQ\n' | juju autoload-credentials"
+script: tox -e lint,py35,functional
+after_script:
+  - sudo -E sudo -u $USER -E bash -c "juju destroy-controller --destroy-all-models -y test"

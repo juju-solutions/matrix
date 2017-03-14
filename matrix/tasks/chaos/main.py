@@ -133,8 +133,8 @@ async def chaos(context, rule, task, event=None):
 
         if config.output_dir:
             chaos_output = Path(config.output_dir,
-                                 config.chaos_output.format(
-                                     model_name=model.info.name))
+                                config.chaos_output.format(
+                                    model_name=model.info.name))
         else:
             chaos_output = Path(config.chaos_output.format(
                 model_name=model.info.name))

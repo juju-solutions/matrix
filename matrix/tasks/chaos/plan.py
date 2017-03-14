@@ -1,6 +1,5 @@
 import random
 
-from .selectors import Selectors
 from .actions import Actions
 from .tags import SUBORDINATE_OK
 
@@ -17,8 +16,6 @@ async def _fetch_machine(rule, model, tags):
     machines = [m for m in model.machines.values()]
     if not machines:
         raise InvalidModel("No machines in the model.")
-
-    machine = random.choice(machines)
 
     selectors = [
         {'selector': 'machines'},
@@ -78,11 +75,11 @@ def validate_plan(plan):
     error message if we run into anything that is not valid.
 
     '''
-    if not 'actions' in plan:
+    if 'actions' not in plan:
         raise InvalidPlan('Plan missing "actions" key: {}'.format(plan))
 
     for action in plan['actions']:
-        if not 'action' in action:
+        if 'action' not in action:
             raise InvalidPlan('Action missing "action" key: {}'.format(action))
 
         if not action.get('selectors'):

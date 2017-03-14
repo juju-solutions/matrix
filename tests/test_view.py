@@ -9,8 +9,10 @@ def render_row(row):
 
 def test_dict_widget():
     tasks = collections.OrderedDict()
-    tasks["alpha"] = {"name": "alpha", "value": "This is alpha", "status": "running"}
-    tasks["beta"] = {"name": "beta", "value": "This is beta", "status": "pending"}
+    tasks["alpha"] = {
+        "name": "alpha", "value": "This is alpha", "status": "running"}
+    tasks["beta"] = {
+        "name": "beta", "value": "This is beta", "status": "pending"}
 
     task_walker = view.SimpleDictValueWalker(
             tasks,
