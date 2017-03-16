@@ -176,6 +176,10 @@ def setup(matrix, args=None):
                               "mode.".format(
                                   RAW_TIMEOUT,
                                   TUI_TIMEOUT or "no timeout")))
+    parser.add_argument("-H", "--ha", action='store_true',
+                        help=("Treat this bundle as a 'high availabilty' "
+                              "bundle. This means that tests that gate on "
+                              "'ha_only' will gate on this bundle."))
 
     options = parser.parse_args(args, namespace=matrix)
     options = add_bundle_opts(options, parser)

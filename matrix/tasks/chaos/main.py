@@ -5,6 +5,7 @@ import yaml
 from pathlib import Path
 
 from .actions import Actions
+from matrix import utils
 from matrix.model import TestFailure
 from .plan import generate_plan, validate_plan
 from .selectors import Selectors
@@ -151,9 +152,8 @@ async def chaos(context, rule, task, event=None):
             rule.log.error(e)
             continue
 
-        if errors and task.gating:
-            raise TestFailure(
-                task, "Exceptions were raised during chaos run.")
+        if errors and utils.should_gate(context=context, task=task):
+            raise TestFailure(task, "Exceptions were raised during chaos run.")
 
         context.bus.dispatch(
             origin="chaos",

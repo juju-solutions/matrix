@@ -19,7 +19,7 @@
       "periodic": 5
       "do":
         "task": matrix.tasks.health
-      "gating": false
+      "gating": ha_only
       "until": chaos.complete
     - "after": health.status.healthy
       "do":

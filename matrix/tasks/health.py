@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime, timezone
+from matrix import utils
 from matrix.model import TestFailure
 
 
@@ -55,7 +56,7 @@ async def health(context, rule, task, event=None):
         _log = rule.log.info
     _log("Health check: %s", result)
 
-    if result == 'unhealthy' and task.gating:
+    if result == 'unhealthy' and utils.should_gate(context=context, task=task):
         rule.log.error("Raising TestFailure due to unhealthy status")
         raise TestFailure(task, 'Health state was unhealthy')
 

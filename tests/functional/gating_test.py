@@ -32,3 +32,16 @@ class TestGating(Harness):
         proc = subprocess.run(self.cmd + [test], check=False, timeout=60)
         self.assertEqual(proc.returncode, 0)
         self.check_artifacts(1)  # log
+
+    def test_gate_on_ha(self):
+        test = 'tests/test_ha_gating.matrix'
+        proc = subprocess.run(
+            self.cmd + ['--ha', test], check=False, timeout=60)
+        self.assertEqual(proc.returncode, 1)
+        self.check_artifacts(1)  # log
+
+    def test_dont_gate_non_ha(self):
+        test = 'tests/test_ha_gating.matrix'
+        proc = subprocess.run(self.cmd + [test], check=False, timeout=60)
+        self.assertEqual(proc.returncode, 0)
+        self.check_artifacts(1)  # log
