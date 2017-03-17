@@ -28,4 +28,4 @@
     - "after": health.status.healthy
       "do":
         "task": matrix.tasks.chaos
-      "gating": false
+      "gating": ha_only
