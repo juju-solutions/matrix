@@ -244,7 +244,7 @@ async def crashdump(log, model_name, directory=None):
 def should_gate(context, task):
     """
     Determine whether or not we should "gate" (raise an error) on
-    failure, given a specific task, in a specic context.
+    failure, given a specific task, in a specific context.
 
     """
     if task.gating is True:
