@@ -325,7 +325,7 @@ class RuleEngine:
         if exceptions:
             for t, e in exceptions:
                 if type(e) is model.TestFailure:
-                    if e.task.gating is True:
+                    if utils.should_gate(context=self, task=e.task):
                         log.error(
                             "Setting exit code 1 due to gating TestFailure.")
                         self.exit_code = 1

@@ -5,6 +5,7 @@ import logging.config
 from pathlib import Path
 from pkg_resources import resource_filename
 import os
+import yaml
 import sys
 
 from .bus import Bus, set_default_bus
@@ -42,6 +43,39 @@ def configLogging(options):
     if options.log_filter:
         fil = root_logger.handlers[0].filters[0]
         fil.update_selections(options.log_filter)
+
+
+def add_bundle_opts(options, parser):
+    """
+    Add arguments from a 'matrix' section of the bundle's tests.yaml
+    to our options object.
+
+    Don't allow a bundle to override anything that we've set from the
+    command line (protects from potential mischief).
+
+    """
+    test_yaml_file = Path(options.path, 'tests', 'test.yaml')
+    if not test_yaml_file.exists():
+        return options
+
+    with test_yaml_file.open() as test_yaml:
+        test_yaml = test_yaml.read()
+        test_yaml = yaml.load(test_yaml)
+
+    bundle_opts = test_yaml.get('matrix')
+
+    # Run things through the parser to valiate that our arguments are
+    # well formed.
+    parser.parse_args(bundle_opts)
+
+    for key in bundle_opts:
+        # If a key is not in options, or the key is set to a default
+        # value, add the value from the bundle to our options.
+        if not hasattr(options, key) or \
+           getattr(options, key) == parser.get_default(key):
+            setattr(options, key, bundle_opts[key])
+
+    return options
 
 
 def setup(matrix, args=None):
@@ -142,15 +176,23 @@ def setup(matrix, args=None):
                               "mode.".format(
                                   RAW_TIMEOUT,
                                   TUI_TIMEOUT or "no timeout")))
+    parser.add_argument("-H", "--ha", action='store_true',
+                        help=("Treat this bundle as a 'high availabilty' "
+                              "bundle. This means that tests that gate on "
+                              "'ha_only' will gate on this bundle."))
+
     options = parser.parse_args(args, namespace=matrix)
+    options = add_bundle_opts(options, parser)
+
+    if not (options.path.is_dir() and (options.path / 'bundle.yaml').exists()):
+        parser.error('Invalid bundle directory: %s' % options.path)
+
     # Set default timeouts
     if options.timeout is None:
         if options.skin == 'raw':
             options.timeout = RAW_TIMEOUT
         if options.skin == 'tui':
             options.timeout = TUI_TIMEOUT  # None
-    if not (options.path.is_dir() and (options.path / 'bundle.yaml').exists()):
-        parser.error('Invalid bundle directory: %s' % options.path)
 
     configLogging(options)
     return options

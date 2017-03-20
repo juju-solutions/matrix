@@ -96,7 +96,7 @@ class Context:
 class Task:
     command = attr.ib(convert=str)
     args = attr.ib(default=attr.Factory(dict))
-    gating = attr.ib(default=True, convert=bool)
+    gating = attr.ib(default=True)
 
     @property
     def name(self):
