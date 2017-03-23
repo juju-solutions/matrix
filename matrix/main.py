@@ -132,6 +132,13 @@ def setup(matrix, args=None):
     parser.add_argument("-k", "--keep-models", action="store_true",
                         default=False, help="Keep the created per-test models "
                                             "for further inspection")
+    parser.add_argument("-r", "--deployer", default="python-libjuju",
+                        help="Method to use to deploy charms. Defaults to "
+                        "'python-libjuju'. Other options include 'congure-up'."
+                        " Note that if you choose conjure-up, --path "
+                        "should point to a conjure-up spell "
+                        "(with metadata.yaml) "
+                        "instead of to a vanilla juju bundle.")
     parser.add_argument("-l", "--log-level", default=None,
                         help="Set log level.")
     parser.add_argument("-L", "--log-name", nargs="*",
