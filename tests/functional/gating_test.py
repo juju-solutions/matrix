@@ -18,7 +18,7 @@ class TestGating(Harness):
     def test_gating_test_failure(self):
         test = 'tests/test_gating.matrix'
         proc = subprocess.run(self.cmd + [test], check=False, timeout=60)
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(proc.returncode, 101)
         self.check_artifacts(1)  # log
 
     def test_gating_uncaught_exception(self):
@@ -37,7 +37,7 @@ class TestGating(Harness):
         test = 'tests/test_ha_gating.matrix'
         proc = subprocess.run(
             self.cmd + ['--ha', test], check=False, timeout=60)
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(proc.returncode, 101)
         self.check_artifacts(1)  # log
 
     def test_dont_gate_non_ha(self):

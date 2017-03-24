@@ -249,7 +249,7 @@ def should_gate(context, task):
     """
     if task.gating is True:
         return True
-    if task.gating == 'ha_only' and context.ha is True:
+    if task.gating == 'ha_only' and context.config.ha is True:
         return True
     return False
 

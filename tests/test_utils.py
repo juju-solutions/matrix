@@ -13,11 +13,11 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(utils.should_gate(context, task))
 
         task.gating = 'ha_only'
-        context.ha = False
+        context.config.ha = False
         self.assertFalse(utils.should_gate(context, task))
 
         task.gating = 'ha_only'
-        context.ha = True
+        context.config.ha = True
         self.assertTrue(utils.should_gate(context, task))
 
         task.gating = False
