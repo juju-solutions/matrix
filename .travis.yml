@@ -10,8 +10,6 @@ before_install:
   - sudo apt-get install lxd juju -y
   - sudo usermod -a -G lxd $USER
   - sudo lxd init --auto
-  - sudo apt-get install snapd
-  - sudo snap install conjure-up --channel edge --classic
 install: pip install tox-travis
 before_script:
   - sudo -E sudo -u $USER -E bash -c "juju bootstrap localhost test"
