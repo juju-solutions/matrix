@@ -71,7 +71,8 @@ DEPLOYERS = {
 
 
 async def deploy(context, rule, task, event=None):
-    rule.log.info("Deploying %s", context.config.path)
+    rule.log.info(
+        "Deploying %s via %s", context.config.path, context.config.deployer)
     try:
         deployer = DEPLOYERS[context.config.deployer]
     except KeyError:
