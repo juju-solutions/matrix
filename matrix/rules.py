@@ -4,6 +4,7 @@ import functools
 import io
 import logging
 from pathlib import Path
+import os
 import sys
 import yaml
 
@@ -479,7 +480,8 @@ class RuleEngine:
         This is a work-around for https://bugs.launchpad.net/juju/+bug/1652171
         """
         cloud = await context.juju_controller.get_cloud()
-        creds_file = Path('~/.local/share/juju/credentials.yaml').expanduser()
+        data_dir = os.getenv('JUJU_DATA', '~/.local/share/juju/')
+        creds_file = Path(data_dir, 'credentials.yaml').expanduser()
         if creds_file.exists():
             creds = yaml.safe_load(creds_file.read_text())['credentials']
         else:
