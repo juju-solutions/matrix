@@ -325,10 +325,11 @@ class RuleEngine:
         if exceptions:
             for t, e in exceptions:
                 if type(e) is model.TestFailure:
-                    if utils.should_gate(context=self, task=e.task):
+                    if utils.should_gate(context=context, task=e.task):
                         log.error(
-                            "Setting exit code 1 due to gating TestFailure.")
-                        self.exit_code = 1
+                            "Setting exit code 101 due to gating "
+                            "TestFailure.")
+                        self.exit_code = 101
                     else:
                         log.error("Skipping non gating test failure.")
 
