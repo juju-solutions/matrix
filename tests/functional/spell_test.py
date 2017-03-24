@@ -1,4 +1,6 @@
+from distutils.spawn import find_executable
 import subprocess
+import unittest
 
 from .harness import Harness
 
@@ -25,3 +27,7 @@ class TestBasicSpell(Harness):
     def test_basic_spell(self):
         subprocess.run(self.cmd + ['tests/test_deploy.matrix'], timeout=1000)
         self.check_artifacts(1)  # matrix.log
+
+    if not find_executable("conjure-up"):
+        test_basic_spell = unittest.skip("Conjure up not installed")(
+            test_basic_spell)
