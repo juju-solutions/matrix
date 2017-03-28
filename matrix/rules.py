@@ -468,6 +468,7 @@ class RuleEngine:
             context.juju_model = await asyncio.wait_for(
                 context.juju_controller.add_model(
                     name, credential_name=credential,
+                    cloud_name=context.config.cloud,
                 ), 30)
         self.bus.dispatch(
             origin="matrix",

@@ -132,6 +132,12 @@ def setup(matrix, args=None):
     parser.add_argument("-k", "--keep-models", action="store_true",
                         default=False, help="Keep the created per-test models "
                                             "for further inspection")
+    parser.add_argument("-C", "--cloud", default=None,
+                        help="Cloud to deploy models to. Required when this "
+                        "could be ambiguous, as in the case of our JaaS "
+                        "product, which is a shared controllers that can "
+                        "connect to multiple clouds, "
+                        "JaaS.")
     parser.add_argument("-l", "--log-level", default=None,
                         help="Set log level.")
     parser.add_argument("-L", "--log-name", nargs="*",
