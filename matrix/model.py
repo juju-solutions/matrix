@@ -27,6 +27,11 @@ class TestFailure(Exception):
         self.message = message or "Test Failure"
 
 
+class InfraFailure(Exception):
+    "Indicate that we have run into an unexpected error while running a test."
+    pass
+
+
 @attr.s
 class Event:
     """A local or remote event tied to the context timeline."""
@@ -168,7 +173,7 @@ class Task:
         result = False
         try:
             if isinstance(cmd, Path):
-                result = await self.execute_process(context, cmd, rule)
+                result, _, _ = await self.execute_process(context, cmd, rule)
             else:
                 # this is a plugin. resolve would have loaded it
                 result = await self.execute_plugin(context, cmd, rule)

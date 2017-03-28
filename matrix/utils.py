@@ -214,7 +214,8 @@ async def execute_process(cmd, log):
         log.debug(stdout.decode('utf-8'))
     if stderr:
         log.error(stderr.decode('utf-8'))
-    return p.returncode == 0
+
+    return p.returncode == 0, stdout, stderr
 
 
 async def crashdump(log, model_name, directory=None):
