@@ -66,7 +66,7 @@ class Context:
     # XXX: use an event for this?
     waiters = attr.ib(default=attr.Factory(dict), repr=False, init=False)
     juju_controller = attr.ib(repr=False)
-    juju_model = attr.ib(repr=False, init=False)
+    juju_model = attr.ib(repr=False, init=False, default=None)
     test = attr.ib(repr=False, init=False)
 
     def set_state(self, name, value):
