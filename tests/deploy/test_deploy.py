@@ -3,7 +3,7 @@ import pytest
 
 from pkg_resources import resource_filename
 
-from matrix.tasks.deploy import libjuju, conjureup, DEPLOYERS
+from matrix.tasks.deploy import libjuju
 from matrix.model import Context
 from matrix import rules
 
@@ -34,11 +34,3 @@ async def test_libjuju(event_loop):
     await libjuju(context, None)
 
     mock_deploy.assert_called_once_with("foo")
-
-
-def test_deployer_constant():
-    for key in DEPLOYERS:
-        if "conjure" in key:
-            assert DEPLOYERS[key] == conjureup
-        if "libjuju" in key:
-            assert DEPLOYERS[key] == libjuju

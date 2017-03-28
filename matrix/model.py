@@ -27,6 +27,11 @@ class TestFailure(Exception):
         self.message = message or "Test Failure"
 
 
+class InfraFailure(Exception):
+    "Indicate that we have run into an unexpected error while running a test."
+    pass
+
+
 @attr.s
 class Event:
     """A local or remote event tied to the context timeline."""
