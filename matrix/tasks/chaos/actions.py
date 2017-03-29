@@ -13,7 +13,7 @@ from matrix.model import Rule
 
 from matrix.utils import Singleton
 
-from .tags import SUBORDINATE_OK
+from .tags import SUBORDINATE_OK  # noqa
 
 log = logging.getLogger("chaos")
 
@@ -72,7 +72,7 @@ action = Actions.decorate
 #
 # Define your actions here
 #
-@action(SUBORDINATE_OK)
+@action
 async def reboot(rule: Rule, model: Model, unit: Unit):
     """
     Given a set of units, send a reboot command to all of them.
@@ -122,7 +122,7 @@ async def add_unit(rule: Rule, model: Model, application: Application,
     await application.add_unit(count=count, to=to)
 
 
-@action(SUBORDINATE_OK)
+@action
 async def kill_juju_agent(rule: Rule, model: Model, unit: Unit):
     """Kill the juju agent on a machine."""
 
