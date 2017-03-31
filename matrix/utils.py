@@ -218,7 +218,7 @@ async def execute_process(cmd, log):
     return p.returncode == 0, stdout, stderr
 
 
-async def crashdump(log, model_name, directory=None):
+async def crashdump(log, model_name, controller=None, directory=None):
     '''
     Dump the logs from the running model.
 
@@ -227,6 +227,8 @@ async def crashdump(log, model_name, directory=None):
 
     '''
     log.info("Running crash dump")
+    if controller:
+        model_name = "{}:{}".format(controller, model_name)
     cmd = ['juju-crashdump', '-m', model_name, '-u', model_name, '-s']
     if directory:
         cmd += ['-o', directory]
