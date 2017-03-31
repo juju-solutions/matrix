@@ -264,3 +264,15 @@ def new_event_loop():
         yield new_loop
     finally:
         asyncio.set_event_loop(old_loop)
+
+
+def valid_bundle_or_spell(p):
+    """
+    Verify that a given pathlib.Path object points at a valid bundle or spell.
+
+    """
+    if not p.is_dir():
+        return False
+    if not ((p / 'bundle.yaml').exists() or (p / 'metadata.yaml').exists()):
+        return False
+    return True
