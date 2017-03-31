@@ -184,7 +184,7 @@ def setup(matrix, args=None):
     options = parser.parse_args(args, namespace=matrix)
     options = add_bundle_opts(options, parser)
 
-    if not (options.path.is_dir() and (options.path / 'bundle.yaml').exists()):
+    if not utils.valid_bundle_or_spell(options.path):
         parser.error('Invalid bundle directory: %s' % options.path)
 
     # Set default timeouts
