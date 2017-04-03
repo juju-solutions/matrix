@@ -427,6 +427,7 @@ class RuleEngine:
                 await utils.crashdump(
                     log=log,
                     model_name=model_name,
+                    controller=context.config.controller,
                     directory=context.config.output_dir
                 )
         except Exception as e:
