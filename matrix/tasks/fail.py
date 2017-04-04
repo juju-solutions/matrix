@@ -1,3 +1,4 @@
+import asyncio
 from matrix.model import TestFailure
 
 
@@ -13,5 +14,10 @@ async def fail(context, rule, task, event=None):
 
     if task.args.get('generic_exception'):
         raise Exception(message)
-    else:
-        raise TestFailure(task, message=message)
+    if task.args.get('break_connection'):
+        await asyncio.sleep(20)
+        rule.log.debug("Generating connection failure")
+        await context.juju_model.connection.ws.close()
+        return True
+
+    raise TestFailure(task, message=message)
