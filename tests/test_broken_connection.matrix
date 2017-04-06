@@ -1,0 +1,18 @@
+#!/usr/bin/env matrix
+"tests":
+- "name": Verify that we exit with an InfraFailure when the connection breaks.
+  "description": >
+    This test succeeds if matrix exits with an exit code of 1
+  "rules":
+    - "do":
+        "task": matrix.tasks.deploy
+    - "after": deploy
+      "periodic": 5
+      "do":
+        "task": matrix.tasks.health
+      "until": health.status.healthy
+    - "after": deploy
+      "do":
+        "task": matrix.tasks.fail
+        "break_connection": true
+      
