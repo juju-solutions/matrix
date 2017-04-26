@@ -379,7 +379,7 @@ class RuleEngine:
             try:
                 await self.add_model(context)
             except Exception as e:
-                log.error('Error adding model: %s', e)
+                log.exception('Error adding model: %s', e)
                 self.exit_code = 200
             else:
                 success = await self.run_once(context, test)
