@@ -482,7 +482,8 @@ class RuleEngine:
 
         This is a work-around for https://bugs.launchpad.net/juju/+bug/1652171
         """
-        cloud = context.config.cloud or await context.juju_controller.get_cloud()
+        cloud = context.config.cloud or \
+            await context.juju_controller.get_cloud()
         data_dir = os.getenv('JUJU_DATA', '~/.local/share/juju/')
         creds_file = Path(data_dir, 'credentials.yaml').expanduser()
         if creds_file.exists():
