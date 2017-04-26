@@ -456,7 +456,7 @@ class RuleEngine:
             log.info("Connecting to model %s", self.model)
             context.juju_model = juju.model.Model(loop=self.loop)
             await asyncio.wait_for(
-                context.juju_model.connect_model(self.model), 30)
+                context.juju_model.connect_model(self.model), 120)
         else:
             # work-around for: https://bugs.launchpad.net/juju/+bug/1652171
             credential = await self._get_credential(context)
@@ -469,7 +469,7 @@ class RuleEngine:
                 context.juju_controller.add_model(
                     name, credential_name=credential,
                     cloud_name=context.config.cloud,
-                ), 30)
+                ), 120)
         self.bus.dispatch(
             origin="matrix",
             payload=context.juju_model,
@@ -482,7 +482,7 @@ class RuleEngine:
 
         This is a work-around for https://bugs.launchpad.net/juju/+bug/1652171
         """
-        cloud = await context.juju_controller.get_cloud()
+        cloud = context.config.cloud or await context.juju_controller.get_cloud()
         data_dir = os.getenv('JUJU_DATA', '~/.local/share/juju/')
         creds_file = Path(data_dir, 'credentials.yaml').expanduser()
         if creds_file.exists():
@@ -572,11 +572,13 @@ class RuleEngine:
             view_controller.start()
             await self.connect_controller(context)
             await self.run(context)
+        except Exception as e:
+            log.exception("Error running Rules Engine. Cleaning up ...")
         finally:
             # Wait for any unprocessed events before exiting the loop
             await btask
             view_controller.stop()
             await context.juju_controller.disconnect()
-        self.loop.stop()
-        if self._exc and not isinstance(self._exc, ShutdownException):
-            raise self._exc[0](self._exc[1]).with_traceback(self._exc[2])
+            self.loop.stop()
+            if self._exc and not isinstance(self._exc, ShutdownException):
+                raise self._exc[0](self._exc[1]).with_traceback(self._exc[2])
