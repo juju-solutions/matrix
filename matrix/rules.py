@@ -455,8 +455,7 @@ class RuleEngine:
                 return
             log.info("Connecting to model %s", self.model)
             context.juju_model = juju.model.Model(loop=self.loop)
-            await asyncio.wait_for(
-                context.juju_model.connect_model(self.model), 60)
+            await context.juju_model.connect_model(self.model)
         else:
             # work-around for: https://bugs.launchpad.net/juju/+bug/1652171
             credential = await self._get_credential(context)
@@ -465,11 +464,9 @@ class RuleEngine:
                 petname.Generate(2, '-')
             )
             log.info("Creating model %s", name)
-            context.juju_model = await asyncio.wait_for(
-                context.juju_controller.add_model(
-                    name, credential_name=credential,
-                    cloud_name=context.config.cloud,
-                ), 60)
+            context.juju_model = await context.juju_controller.add_model(
+                name, credential_name=credential,
+                cloud_name=context.config.cloud)
         self.bus.dispatch(
             origin="matrix",
             payload=context.juju_model,
