@@ -141,6 +141,16 @@ via tox like so:
 
     tox -r -e functional -v
 
+### JaaS Support
+
+You can also run juju-matrix against JaaS controllers. The cloud you
+intend to deploy to is ambiguous in JaaS if not specified, however, so
+you must specific a cloud with -C/--cloud.
+
+To deploy to aws, for example, you would use the following invocation:
+
+    juju matrix -p /path/to/bundle -C aws
+
 
 High level Design
 ------------------
