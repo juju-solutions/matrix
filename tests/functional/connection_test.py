@@ -22,8 +22,7 @@ class TestConnection(Harness):
         self.check_artifacts(1)  # log
         with Path(self.tmpdir, self.artifacts[0]).open() as matrix_log:
             infra_failure = False
-            msg = ("Tried to perform health check, but connection "
-                   "status is 'error'")
+            msg = "WebSocket connection is closed: code = 1000, no reason."
             for line in matrix_log.readlines():
                 if msg in line:
                     infra_failure = True

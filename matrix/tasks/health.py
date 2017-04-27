@@ -1,16 +1,11 @@
 from datetime import timedelta, datetime, timezone
 from matrix import utils
-from matrix.model import TestFailure, InfraFailure
+from matrix.model import TestFailure
 
 
 async def health(context, rule, task, event=None):
     if not (context.juju_model and context.juju_model.applications):
         return True
-
-    conn_monitor = context.juju_model.connection.monitor
-    if conn_monitor.status != conn_monitor.CONNECTED:
-        raise InfraFailure("Tried to perform health check, but connection "
-                           "status is '{}'".format(conn_monitor.status))
 
     stable_period = timedelta(seconds=task.args.get('stability_period', 30))
     errored_apps = []
