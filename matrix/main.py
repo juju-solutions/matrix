@@ -14,10 +14,6 @@ from . import rules
 from . import utils
 
 
-RAW_TIMEOUT = 3600
-TUI_TIMEOUT = None
-
-
 def configLogging(options):
     logging.captureWarnings(True)
     if options.output_dir:
@@ -169,13 +165,6 @@ def setup(matrix, args=None):
     parser.add_argument("-n", "--chaos_num", default=5)
     parser.add_argument("-o", "--chaos_output",
                         default="chaos_plan_{model_name}.yaml")
-    parser.add_argument("-z", "--timeout", type=int,
-                        help=("Max seconds for a test to run. "
-                              "Defaults to {} for raw (non interactive) mode; "
-                              "defaults to {} for tui (interactive) "
-                              "mode.".format(
-                                  RAW_TIMEOUT,
-                                  TUI_TIMEOUT or "no timeout")))
     parser.add_argument("-H", "--ha", action='store_true',
                         help=("Treat this bundle as a 'high availabilty' "
                               "bundle. This means that tests that gate on "
@@ -186,13 +175,6 @@ def setup(matrix, args=None):
 
     if not utils.valid_bundle_or_spell(options.path):
         parser.error('Invalid bundle directory: %s' % options.path)
-
-    # Set default timeouts
-    if options.timeout is None:
-        if options.skin == 'raw':
-            options.timeout = RAW_TIMEOUT
-        if options.skin == 'tui':
-            options.timeout = TUI_TIMEOUT  # None
 
     configLogging(options)
     return options

@@ -313,14 +313,13 @@ class RuleEngine:
         # (either success or failure) and then terminate here
         done, pending = await asyncio.wait(
             self.jobs, loop=self.loop,
-            return_when=asyncio.FIRST_EXCEPTION,
-            timeout=context.config.timeout)
+            return_when=asyncio.FIRST_EXCEPTION)
         if pending:
             # We terminated with things still running
             # this could be a test failure or poor rule formation.
             # can we do anything here
             log.warn(
-                "Pending tasks remain, aborting due to failure or timeout")
+                "Pending tasks remain, aborting due to failure.")
 
         exceptions = [(t, t.exception()) for t in done if t.exception()]
         if exceptions:
