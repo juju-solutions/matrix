@@ -537,6 +537,7 @@ class RuleEngine:
                             log.debug("Cancelling %s", job)
                             if not job.done():
                                 job.cancel()
+                    self.exit_code = 1
                 raise e
 
         if self._reported:
