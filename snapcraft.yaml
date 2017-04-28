@@ -1,5 +1,5 @@
 name: juju-matrix
-version: 0.9.0
+version: 0.10.0
 summary: Automatic testing of big software deployments under various failure conditions
 description: >
   This is a test engine designed to validate proper function of real-world

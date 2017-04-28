@@ -10,7 +10,7 @@ with open(reqs_file) as f:
 SETUP = {
     'name': "jujumatrix",
     'packages': find_packages(),
-    'version': "0.9.0",
+    'version': "0.10.0",
     'author': "Juju Developers",
     'author_email': "juju@lists.ubuntu.com",
     'url': "https://github.com/juju-solutions/matrix",
